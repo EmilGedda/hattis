@@ -6,11 +6,12 @@ import System.Environment
 main :: IO ()
 main = do argv <- getArgs
           (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
+          --the flags list contains all flags set, strs is a list of all non flag arguments
           return ()
 
 
-versionstr = "0.0.0.0"
-usage = "Usage: ./kattis [-fVvh] [-m FILE] [-l LANG] PROBLEMID FILES\n"
+versionstr = "0.0.0"
+usage = "Usage: kattis [-fVvh] [-m FILE] [-l LANG] PROBLEMID FILES\n"
 
 data Flag
     = Force
@@ -19,6 +20,7 @@ data Flag
     | Help
     | MainClass
     | Language
+    | Config
     deriving (Eq, Enum, Show)
 
 defaults :: OptionList Flag
@@ -32,4 +34,5 @@ flags = makeOptions
     , (Help,        'h', "help",    noArg, [], "Displays this help message")
     , (MainClass,   'm', "main",    reqArg, "FILE", "Includes and selects FILE as the mainclass")
     , (Language,    'l', "lang",    reqArg, "LANG", "Overrides the default language detection with LANG")
+    , (Config,      'c', "conf",    reqArg, "FILE", "The location of the kattisrc file, containing login token and username")
     ]
