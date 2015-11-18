@@ -3,18 +3,24 @@ module Settings where
 import System.Environment
 import System.Directory
 import System.FilePath
-import Control.Monad
-import Data.Maybe
-import Control.Applicative
 import Control.Exception
+import Control.Applicative
+import Control.Arrow
 import Error
+import Control.Monad
+import Data.Ini
+import Data.HashMap.Strict
+import Data.Text
 
-getSettings = let path = findSettings in path >>= doesFileExist >>= \case
-                 True -> path
-                 False -> throw SettingsNotFound
+loginAuth = getSettings >>= readIniFile >>= either (throw . MiscError) return
+                >>= return . lookupDefault (throw NoUserSection) (pack "user") . unIni
 
+getSettings = path >>= doesFileExist >>= \case
+                True -> path
+                False -> throw SettingsNotFound
+                where path = settingsLocation
 
-findSettings = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
-            where defval = liftM (</> ".config" </> ending) getHomeDirectory -- No: ~/.config/kattis/kattisrc
-                  fun = return (</> ending) -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
-                  ending = "kattis" </> "kattisrc"
+settingsLocation = liftA3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
+            where defval = (</> ending ".config" ) <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
+                  fun = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
+                  ending = (</> "kattis" </> "kattisrc")
