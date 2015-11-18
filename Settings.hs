@@ -14,8 +14,8 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
 loginAuth = getSettings >>= readIniFile >>= either (throw . MiscError) return >>=
-                return . foldr (++) [] . map M.toList . M.elems . unIni -- Flatten to [(key,values)]
-                >>= return . (isValid =<< flip all neededvalues . flip elem . map fst)
+                return . (isValid =<< flip all neededvalues . flip elem . map fst)
+                . concatMap M.toList . M.elems . unIni -- Flatten to [(key,values)]
                 -- ^Make sure we have the necessary key-values
                 where isValid False x = throw MalformedSettings
                       isValid True  x = x
