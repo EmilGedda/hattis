@@ -13,7 +13,7 @@ import Data.List
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
-loginAuth = getSettings >>= readIniFile >>= either (throw . MiscError) return >>=
+loginAuth path = getSettings path >>= readIniFile >>= either (throw . MiscError) return >>=
                 return . (isValid =<< flip all neededvalues . flip elem . map fst)
                 . concatMap M.toList . M.elems . unIni -- Flatten to [(key,values)]
                 -- ^Make sure we have the necessary key-values
@@ -21,14 +21,16 @@ loginAuth = getSettings >>= readIniFile >>= either (throw . MiscError) return >>
                       isValid True  x = x
                       -- Custom assert helper
 
-getSettings = path >>= doesFileExist >>= \case
+getSettings x = path >>= doesFileExist >>= \case
                 True  -> path
                 False -> throw SettingsNotFound
-                where path = settingsLocation
+                where path = (""==) <$> x >>= \case -- Ugly hack
+                          True  -> settingsLocation
+                          False -> x
 
 settingsLocation = liftA3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
-            where defval = (</> ending ".config" ) <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
-                  fun = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
-                  ending = (</> "kattis" </> "kattisrc")
+                where defval = (</> ending ".config" ) <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
+                      fun = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
+                      ending = (</> "kattis" </> "kattisrc")
 
 neededvalues = map T.pack ["username", "submissionurl", "token"]

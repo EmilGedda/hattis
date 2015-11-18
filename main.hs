@@ -11,7 +11,7 @@ main = do argv <- getArgs
 
 
 versionstr = "0.0.0"
-usage = "Usage: kattis [-fVvh] [-m FILE] [-l LANG] PROBLEMID FILES\n"
+usage = "Usage: kattis [-fVvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES\n"
 
 data Flag
     = Force
@@ -34,5 +34,5 @@ flags = makeOptions
     , (Help,        'h', "help",    noArg, [], "Displays this help message")
     , (MainClass,   'm', "main",    reqArg, "FILE", "Includes and selects FILE as the mainclass")
     , (Language,    'l', "lang",    reqArg, "LANG", "Overrides the default language detection with LANG")
-    , (Config,      'c', "conf",    reqArg, "FILE", "The location of the kattisrc file, containing login token and username")
+    , (Config,      'c', "conf",    reqArg, "FILE", "The location of the kattisrc file, containing login token, username and submissionurl")
     ]
