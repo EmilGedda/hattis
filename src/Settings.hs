@@ -24,8 +24,8 @@ loginAuth path = settingsExist path >>= readIniFile >>= either (throw . MiscErro
 settingsExist = fmap . bool (throw SettingsNotFound) <*> doesFileExist
 
 settingsLocation = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
-                where defval = fmap (</> ending ".config" ) getHomeDirectory  -- No: ~/.config/kattis/kattisrc
-                      fun = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
+                where defval = (</> ending ".config") <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
+                      fun    = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
                       ending = (</> "kattis" </> "kattisrc")
 
 neededvalues = map T.pack ["username", "submissionurl", "token"]
