@@ -14,3 +14,11 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
+*.hi
+*.o
+*.swp
+*.tag
+*~
+*_flymake.hs
+.hsenv
+.stack-work/
