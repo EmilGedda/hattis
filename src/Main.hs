@@ -2,16 +2,19 @@ import System.IO
 import System.Exit
 import GetOpt
 import System.Environment
+import Control.Monad
+import Settings
 
 main :: IO ()
 main = do argv <- getArgs
           (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
+          path <- liftM (getOptionOr Config flags) settingsLocation
           --the flags list contains all flags set, strs is a list of all non flag arguments
           return ()
 
 
 versionstr = "0.0.0"
-usage = "Usage: kattis [-fVvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES\n"
+usage = "Usage: kattis [-fVvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES ...\n"
 
 data Flag
     = Force
