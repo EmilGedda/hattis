@@ -14,7 +14,7 @@ main = do argv <- getArgs
 
 
 versionstr = "0.0.0"
-usage = "Usage: kattis [-fVvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES ...\n"
+usage = "Usage: kattis [-fvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES ...\n"
 
 data Flag
     = Force
@@ -32,7 +32,7 @@ defaults = []
 flags :: OptionSpecs Flag
 flags = makeOptions
     [ (Force,       'f', "force",   noArg, [], "Force submission without confirmation")
-    , (Version,     'V', "version", noArg, [], "Displays version information")
+    , (Version,     '', "version", noArg, [], "Displays version information")
     , (Verbose,     'v', "verbose", noArg, [], "Enables verbose output, useful for debugging")
     , (Help,        'h', "help",    noArg, [], "Displays this help message")
     , (MainClass,   'm', "main",    reqArg, "FILE", "Includes and selects FILE as the mainclass")
