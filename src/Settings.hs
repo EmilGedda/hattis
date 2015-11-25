@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 module Settings where
 import System.Environment
 import System.Directory
@@ -6,9 +5,11 @@ import System.FilePath
 import Control.Exception
 import Control.Arrow
 import Error
+import Control.Applicative
 import Control.Monad
 import Data.Ini
 import Data.List
+import Data.Bool
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
@@ -19,10 +20,8 @@ loginAuth path = settingsExist path >>= readIniFile >>= either (throw . MiscErro
                 where isValid False x = throw MalformedSettings
                       isValid True  x = x
                       -- Custom assert helper
-
-settingsExist path = path >>= doesFileExist >>= \case
-                True  -> path
-                False -> throw SettingsNotFound
+ 
+settingsExist = fmap . bool (throw SettingsNotFound) <*> doesFileExist
 
 settingsLocation = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
                 where defval = fmap (</> ending ".config" ) getHomeDirectory  -- No: ~/.config/kattis/kattisrc

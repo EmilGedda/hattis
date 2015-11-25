@@ -8,7 +8,7 @@ import Settings
 main :: IO ()
 main = do argv <- getArgs
           (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
-          path <- liftM (getOptionOr Config flags) settingsLocation
+          auth <- liftM (loginAuth . getOptionOr Config flags) settingsLocation
           --the flags list contains all flags set, strs is a list of all non flag arguments
           return ()
 
@@ -32,7 +32,7 @@ defaults = []
 flags :: OptionSpecs Flag
 flags = makeOptions
     [ (Force,       'f', "force",   noArg, [], "Force submission without confirmation")
-    , (Version,     '', "version", noArg, [], "Displays version information")
+    , (Version,     'V', "version", noArg, [], "Displays version information")
     , (Verbose,     'v', "verbose", noArg, [], "Enables verbose output, useful for debugging")
     , (Help,        'h', "help",    noArg, [], "Displays this help message")
     , (MainClass,   'm', "main",    reqArg, "FILE", "Includes and selects FILE as the mainclass")
