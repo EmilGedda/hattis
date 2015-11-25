@@ -13,19 +13,16 @@ import Data.Bool
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
-loginAuth path = settingsExist path >>= readIniFile >>= either (throw . MiscError) return >>=
-                return . (isValid =<< flip all neededvalues . flip elem . map fst)
-                . concatMap M.toList . M.elems . unIni -- Flatten to [(key,values)]
-                -- ^Make sure we have the necessary key-values
-                where isValid False x = throw MalformedSettings
-                      isValid True  x = x
-                      -- Custom assert helper
+loginAuth = fmap ((bool (throw MalformedSettings) id =<<               -- 4. If not, throw else return
+                flip all neededvalues . flip elem . map fst) .         -- 3. Check if we have it all
+                concatMap M.toList . M.elems) . liftM                  -- 2. Flatten to [(key, value)]
+                (either (throw . MiscError) unIni) . readIniFile       -- 1. Try parsing the Ini
  
 settingsExist = fmap . bool (throw SettingsNotFound) <*> doesFileExist
 
-settingsLocation = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME") -- Is $XDG_CONFIG_HOME defined?
+settingsLocation = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")    -- Is $XDG_CONFIG_HOME defined?
                 where defval = (</> ending ".config") <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
-                      fun    = return ending -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
+                      fun    = return ending                                -- Yes: $XDG_CONFIG_HOME/kattis/kattisrc
                       ending = (</> "kattis" </> "kattisrc")
 
 neededvalues = map T.pack ["username", "submissionurl", "token"]

@@ -8,7 +8,7 @@ import Settings
 main :: IO ()
 main = do argv <- getArgs
           (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
-          auth <- loginAuth . getOptionOr Config flags <$> settingsLocation
+          auth <- loginAuth =<< settingsExist =<< getOptionOr Config flags <$> settingsLocation
           --the flags list contains all flags set, strs is a list of all non flag arguments
           return ()
 
