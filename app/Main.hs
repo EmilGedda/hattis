@@ -9,6 +9,7 @@ main :: IO ()
 main = do argv <- getArgs
           (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
           auth <- loginAuth =<< settingsExist =<< getOptionOr Config flags <$> settingsLocation
+          putStrLn . show $ auth
           --the flags list contains all flags set, strs is a list of all non flag arguments
           return ()
 

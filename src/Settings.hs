@@ -1,4 +1,4 @@
-module Settings where
+module Settings (loginAuth, settingsLocation, settingsExist) where
 import System.Environment
 import System.Directory
 import System.FilePath
@@ -7,18 +7,25 @@ import Control.Arrow
 import Error
 import Control.Applicative
 import Control.Monad
-import Data.Ini
 import Data.List
 import Data.Bool
+import qualified Data.Ini as I
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
-loginAuth = fmap ((bool (throw MalformedSettings) id =<<               -- 4. If not, throw else return
-                flip all neededvalues . flip elem . map fst) .         -- 3. Check if we have it all
-                concatMap M.toList . M.elems) . liftM                  -- 2. Flatten to [(key, value)]
-                (either (throw . MiscError) unIni) . readIniFile       -- 1. Try parsing the Ini
+-- Returns the [(key, value)] of all fields in the .ini in FilePath
+loginAuth :: FilePath -> IO [(T.Text, T.Text)] 
+loginAuth = liftM (settingsValid . concatMap M.toList . M.elems) . parseIni
  
-settingsExist = fmap . bool (throw SettingsNotFound) <*> doesFileExist
+-- Verify that neededvalues is a subset of parsed settings
+settingsValid :: [(T.Text, a)] -> [(T.Text, a)]
+settingsValid = bool (throw MalformedSettings) id =<< subset neededvalues . map fst
+                  where subset = flip $ all . flip elem
+
+-- Try parsing the specified config file, kattisrc
+parseIni = liftM (either (throw . MiscError) I.unIni) . I.readIniFile
+
+settingsExist = liftM . bool (throw SettingsNotFound) <*> doesFileExist
 
 settingsLocation = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")    -- Is $XDG_CONFIG_HOME defined?
                 where defval = (</> ending ".config") <$> getHomeDirectory  -- No: ~/.config/kattis/kattisrc
