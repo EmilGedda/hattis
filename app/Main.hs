@@ -7,11 +7,12 @@ import Settings
 
 main :: IO ()
 main = do argv <- getArgs
-          (flags, strs) <- parseOptions argv defaults usage flags Version versionstr Help
+          (flags, (id:files)) <- parseOptions argv defaults usage flags Version versionstr Help
           auth <- loginAuth =<< settingsExist =<< getOptionOr Config flags <$> settingsLocation
-          putStrLn . show $ auth
+          putStrLn $ show files
+
           --the flags list contains all flags set, strs is a list of all non flag arguments
-          return ()
+        --  return ()
 
 
 versionstr = "0.0.0"
@@ -38,5 +39,5 @@ flags = makeOptions
     , (Help,        'h', "help",    noArg, [], "Displays this help message")
     , (MainClass,   'm', "main",    reqArg, "FILE", "Includes and selects FILE as the mainclass")
     , (Language,    'l', "lang",    reqArg, "LANG", "Overrides the default language detection with LANG")
-    , (Config,      'c', "conf",    reqArg, "FILE", "The location of the kattisrc file, containing login token, username and submissionurl")
+    , (Config,      'c', "conf",    reqArg, "FILE", "Location of kattisrc, with token, username and submissionurl")
     ]

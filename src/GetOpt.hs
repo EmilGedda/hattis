@@ -66,6 +66,9 @@ parseOptions ::
 
 parseOptions argv defaults usage flags version versionStr help =
     case getOpt Permute flags argv of
+        (_,[],_) -> do  -- Added by Emil Gedda 26-11-2015
+            hPutStr stdout (usageInfo usage flags)
+            exitWith ExitSuccess
         (args,files,[]) -> do
             if isOption version args
                 then do hPutStr stdout versionStr
