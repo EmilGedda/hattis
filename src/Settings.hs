@@ -21,7 +21,7 @@ data Auth = Auth {submissionurl :: T.Text, token :: T.Text, username :: T.Text} 
 loginAuth :: FilePath -> IO Auth
 loginAuth = liftM (auth . sort . settingsValid . concatMap M.toList . M.elems) . parseIni
               where auth [(_,a),(_,b),(_,c)] = Auth a b c -- TODO: improve
- 
+
 -- Verify that neededvalues is a subset of parsed settings
 settingsValid :: [(T.Text, a)] -> [(T.Text, a)]
 settingsValid = (bool (throw MalformedSettings) <*> (length neededvalues ==) . length) . filtered
