@@ -1,19 +1,22 @@
 import System.IO
+import Error
 import System.Exit
 import GetOpt
 import System.Environment
 import Control.Applicative
 import Settings
-
+import Control.Monad.Except
 main :: IO ()
 main = do argv <- getArgs
-          (flags, (id:files)) <- parseOptions argv defaults usage flags Version versionstr Help
-          auth <- loginAuth =<< settingsExist =<< getOptionOr Config flags <$> settingsLocation
-          putStrLn $ show files
-
+          (flagsset, (id:files)) <- parseOptions argv defaults usage flags Version versionstr Help
+          putStrLn "derp"
           --the flags list contains all flags set, strs is a list of all non flag arguments
-        --  return ()
 
+getauth :: OptionList Flag -> KattisApp FilePath
+getauth flg = joinIO (settingsExist . getOptionOr Config flg <$> settingsLocation)
+
+joinE :: Monad m => m (ExceptT e m a) -> ExceptT e m a
+joinE = ExceptT . join . return . (runExceptT =<<) 
 
 versionstr = "0.0.0"
 usage = "Usage: kattis [-fvh] [-c KATTISRC] [-m FILE] [-l LANG] PROBLEMID FILES ...\n"

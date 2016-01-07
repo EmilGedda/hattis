@@ -20,6 +20,7 @@ library
                      , Error
                      , SourceFile
   build-depends:       base >= 4.7 && < 5
+                     , mtl
                      , text
                      , directory
                      , filepath
@@ -32,7 +33,8 @@ executable kattis
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , kattis					 
+                     , kattis
+                     , mtl
   default-language:    Haskell2010
 
 test-suite kattis-test
