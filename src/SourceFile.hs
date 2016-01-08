@@ -3,7 +3,6 @@ import Data.Either
 import Error
 import System.FilePath
 import Control.Arrow
-import Data.List (intercalate)
 
 type Files = [String]
 
@@ -21,7 +20,7 @@ data Language --Todo: Sort by lexical order?
     | Ruby
     | Python2
     | Python3
-    deriving (Show)
+    deriving (Show, Eq)
 
 class FileExt a where
     exts :: a -> [String]
@@ -59,11 +58,11 @@ matches = (. exts) . elem
 possiblelangs :: String -> [Language]
 possiblelangs ext = filter (matches ext) langs
 
-tmpname x = case (partitionEithers $ getlangs x) of
-                ([], exts)  -> Right exts
-                (l, _)      -> Left l
-
---validlangs :: Files -> Either [KattisError] Language
-getlangs = map $ fun . (id &&& (possiblelangs . takeExtension))
+getlangs :: Files -> Either KattisError [[Language]]
+getlangs = sequence . map (fun . (id &&& (possiblelangs . takeExtension)))
                 where fun (f, []) = Left (UnknownExtension f)
                       fun (_, l)  = Right l
+
+decidelang = (flip (filter . flip possible) langs <$>) . getlangs
+                where possible x = foldr ((&&) . elem x) True
+
