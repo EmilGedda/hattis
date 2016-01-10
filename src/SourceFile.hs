@@ -63,6 +63,10 @@ getlangs = sequence . map (fun . (id &&& (possiblelangs . takeExtension)))
                 where fun (f, []) = Left (UnknownExtension f)
                       fun (_, l)  = Right l
 
+decidelang :: Files -> Either KattisError [Language]
 decidelang = (flip (filter . flip possible) langs <$>) . getlangs
                 where possible x = foldr ((&&) . elem x) True
+
+-- Clean up the structure, separate algorithms from the logic
+-- Making the code more testable
 
