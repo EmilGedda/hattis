@@ -1,25 +1,25 @@
 module SourceFile where
+import Control.Arrow
 import Data.Either
 import Error
 import System.FilePath
-import Control.Arrow
 
 type Files = [String]
 
-data Language --Todo: Sort by lexical order?
-    = Java
+data Language
+    = C 
+    | CSharp
     | Cpp
     | Go
-    | C 
-    | CSharp
+    | Haskell 
+    | Java
     | JavaScript
     | ObjectiveC 
-    | Haskell 
-    | Prolog
     | PHP 
-    | Ruby
+    | Prolog
     | Python2
     | Python3
+    | Ruby
     deriving (Show, Eq)
 
 class FileExt a where
@@ -27,30 +27,30 @@ class FileExt a where
     name :: a -> String
 
 instance FileExt Language where
-    exts Java       = [".java"]
-    exts Cpp        = [".cpp", ".cc", ".cxx", ".hpp", ".h"]
     exts C          = [".c", ".h"]
-    exts Go         = [".go"]
-    exts ObjectiveC = [".m", ".h"]
-    exts Haskell    = [".hs"]
-    exts Prolog     = [".pl", ".prolog"]
-    exts PHP        = [".php"]
-    exts Ruby       = [".rb"]
-    exts Python3    = [".py"] --Todo: Solve python-ambiguity 
-    exts Python2    = [".py"]
     exts CSharp     = [".cs"]
+    exts Cpp        = [".cpp", ".cc", ".cxx", ".hpp", ".h"]
+    exts Go         = [".go"]
+    exts Haskell    = [".hs"]
+    exts Java       = [".java"]
     exts JavaScript = [".js"]
+    exts ObjectiveC = [".m", ".h"]
+    exts PHP        = [".php"]
+    exts Prolog     = [".pl", ".prolog"]
+    exts Python2    = [".py"]
+    exts Python3    = [".py"] --Todo: Solve python-ambiguity 
+    exts Ruby       = [".rb"]
     
+    name CSharp     = "C#"
     name Cpp        = "C++"
     name ObjectiveC = "Objective-C"
-    name Python3    = "Python 3"
     name Python2    = "Python 2"
-    name CSharp     = "C#"
+    name Python3    = "Python 3"
     name x          = show x
 
 langs :: [Language]
-langs = [Java, Cpp, Go, C, CSharp, JavaScript, ObjectiveC, 
-            Haskell, Prolog, PHP, Ruby, Python2, Python3]
+langs = [C, CSharp, Cpp, Go, Haskell, Java, JavaScript, 
+        ObjectiveC, PHP, Prolog, Python2, Python3, Ruby] 
 
 matches :: String -> Language -> Bool
 matches = (. exts) . elem
