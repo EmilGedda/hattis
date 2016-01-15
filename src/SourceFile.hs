@@ -3,6 +3,7 @@ import Control.Arrow
 import Data.Either
 import Error
 import System.FilePath
+import qualified Data.List as L
 
 type Files = [String]
 
@@ -60,13 +61,20 @@ possiblelangs ext = filter (matches ext) langs
 
 getlangs :: Files -> Either KattisError [[Language]]
 getlangs = sequence . map (fun . (id &&& (possiblelangs . takeExtension)))
-                where fun (f, []) = Left (UnknownExtension f)
-                      fun (_, l)  = Right l
+        where fun (f, []) = Left (UnknownExtension f)
+              fun (_, l)  = Right l
 
+-- Clean this up
 decidelang :: Files -> Either KattisError [Language]
-decidelang = (flip (filter . flip possible) langs <$>) . getlangs
-                where possible x = foldr ((&&) . elem x) True
+decidelang x = case (\y -> filter (flip possible y) langs) <$> getlangs x of
+                Right [] -> mullang (getlangs x)
+                Right l@(_:_) -> tomul l
+                a -> a
+        where tomul = Left . MultipleLanguages . map name
+              mullang (Right l) = tomul . L.nub . concat $ l
+              mullang (Left x) = Left x
+              possible x = foldr ((&&) . elem x) True
 
 -- Clean up the structure, separate algorithms from the logic
 -- Making the code more testable
-
+-- Show langs when colliding

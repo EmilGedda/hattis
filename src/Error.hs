@@ -2,8 +2,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Error where
-import Data.Typeable
 import Control.Monad.Except
+import Data.List
+import Data.Typeable
 
 newtype KattisApp a = KattisApp {
                         runApp :: ExceptT KattisError IO a
@@ -24,6 +25,7 @@ data KattisError
     | MalformedSettings
     | MiscError String
     | UnknownExtension String
+    | MultipleLanguages [String]
     deriving (Typeable)
 
 instance Show KattisError where
@@ -32,4 +34,5 @@ instance Show KattisError where
     show UploadFailed      = "The upload was unable to complete"
     show MalformedSettings = "Unable to extract username and token, and submissionurl from kattisrc"
     show (UnknownExtension e) = "Unknown extension found, automatic language detection failed on file: " ++ e
+    show (MultipleLanguages x) = "Unable to automatically decide a language.\nPossible matches: " ++ intercalate ", " x
     show (MiscError str)   = str
