@@ -26,18 +26,19 @@
     possibility of such damage.
 
 -}
+-- Code modified by Emil Gedda 2015 & 2016
 
 module GetOpt
     (OptionList,OptionSpecs,noArg,reqArg,optArg,makeOptions,parseOptions,
     isOption,getOption,getOptionOr)
 where
 
+import Control.Monad (when)
+import Data.Maybe
 import System.Console.GetOpt
     (getOpt,usageInfo,ArgOrder(Permute),OptDescr(..),ArgDescr(..))
-
-import System.IO (stdout,stderr,hPutStr,hPutStrLn)
-
-import System.Exit (ExitCode(..),exitWith)
+import System.IO (stdout,stderr,hPutStr,hPutStrLn, putStr)
+import System.Exit (ExitCode(..),exitWith, exitSuccess)
 
 type OptVal a = (a,String)
 type ArgType a = a -> String -> ArgDescr (OptVal a)
@@ -48,15 +49,15 @@ noArg, reqArg, optArg :: ArgType a
 
 noArg x _ = NoArg (x,"")
 
-reqArg x s = ReqArg f s
+reqArg x = ReqArg f 
     where f y = (x,y)
 
-optArg x s = OptArg f s
+optArg x = OptArg f 
     where f (Just y) = (x,y)
           f Nothing  = (x,"")
 
 makeOptions :: [(a,Char,String,ArgType a,String,String)] -> OptionSpecs a
-makeOptions xs = map f xs
+makeOptions = map f
     where f (g,c,s,h,t,m) = Option [c] [s] (h g t) m
 
 parseOptions ::
@@ -66,18 +67,16 @@ parseOptions ::
 
 parseOptions argv defaults usage flags version versionStr help =
     case getOpt Permute flags argv of
-        (_,[],_) -> do  -- Added by Emil Gedda 26-11-2015
-            hPutStr stdout (usageInfo usage flags)
-            exitWith ExitSuccess
+        (_,[],_) -> do 
+            putStr (usageInfo usage flags)
+            exitSuccess
         (args,files,[]) -> do
-            if isOption version args
-                then do hPutStr stdout versionStr
-                        exitWith ExitSuccess -- Added by Emil Gedda 11-11-2015
-                 else return ()
-            if isOption help args
-                then do hPutStr stdout (usageInfo usage flags)
-                        exitWith ExitSuccess -- Added by Emil Gedda 11-11-2015
-                else return ()
+            when (isOption version args) $
+                do putStr versionStr
+                   exitSuccess
+            when (isOption help args) $
+                do putStr (usageInfo usage flags)
+                   exitSuccess
             return (args ++ defaults, files)
         (_,_,errs) -> do
             hPutStrLn stderr (concat errs ++ usageInfo usage flags)
@@ -89,9 +88,7 @@ isOption options assoc =  case lookup options assoc of
     Just _  -> True
 
 getOption :: Eq a => a -> OptionList a -> String
-getOption options assoc = case lookup options assoc of
-    Nothing -> ""
-    Just s  -> s
+getOption options assoc = fromMaybe "" (lookup options assoc)
 
 getOptionOr :: Eq a => a -> OptionList a -> String -> String
 getOptionOr options assoc def = case lookup options assoc of

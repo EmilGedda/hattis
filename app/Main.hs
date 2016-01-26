@@ -11,9 +11,10 @@ import System.IO
 
 main :: IO ()
 main = do argv <- getArgs
-          (flagsset, (id:files)) <- parseOptions argv defaults usage flags Version versionstr Help
-          auth <- return . getauth $ flagsset
-          putStrLn . show . decidelang $ files
+          (flagsset, id:files) <- parseOptions argv defaults usage flags Version versionstr Help
+          let auth = getauth flagsset
+          let lang = verifyfiles files
+          putStr "End of line."
           --the flags list contains all flags set, strs is a list of all non flag arguments
 
 getauth :: OptionList Flag -> KattisApp FilePath
