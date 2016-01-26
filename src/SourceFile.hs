@@ -1,5 +1,6 @@
-module SourceFile where
+module SourceFile(Language, Files, FileExt, verifyfiles) where
 import Control.Arrow
+import Control.Monad
 import Data.Either
 import System.Directory
 import Error
@@ -73,7 +74,10 @@ getlangs = mapM (fun . (id &&& (possiblelangs . takeExtension)))
               fun (_, l)  = Right l
 
 decidelang :: Files -> Either KattisError Language
-decidelang x = mul . (\y -> filter (`possible` y) langs) . zip x =<< getlangs x
+decidelang x = mul . (flip filter langs . flip possible) . zip x =<< getlangs x
         where possible x = foldr ((&&) . elem x . snd) True
               mul [a] = Right a
               mul  a  = Left . MultipleLanguages . map name $ a
+
+verifyfiles :: Files -> KattisApp Language
+verifyfiles = (wrapKattis . return . decidelang =<<) . allfiles
