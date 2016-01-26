@@ -1,6 +1,7 @@
-module SourceFile(Language, Files, FileExt, verifyfiles) where
+module SourceFile(Language, Files, FileExt, verifyfiles, fromStr) where
 import Control.Arrow
 import Control.Monad
+import Data.Char
 import Data.Either
 import System.Directory
 import Error
@@ -23,7 +24,7 @@ data Language
     | Python2
     | Python3
     | Ruby
-    deriving (Show, Eq)
+    deriving (Show, Read, Eq, Enum)
 
 class FileExt a where
     exts :: a -> [String]
@@ -50,10 +51,16 @@ instance FileExt Language where
     name Python2    = "Python 2"
     name Python3    = "Python 3"
     name x          = show x
+    
+fromStr :: String -> Either KattisError Language
+fromStr x = case filter ((==lower) . map toLower . snd) lang of
+                [] -> Left $ UnknownLanguage x
+                a:_ -> Right $ fst a 
+            where lang  = map (id &&& name) langs
+                  lower = map toLower x 
 
 langs :: [Language]
-langs = [C, CSharp, Cpp, Go, Haskell, Java, JavaScript, 
-        ObjectiveC, PHP, Prolog, Python2, Python3, Ruby] 
+langs = enumFrom C 
 
 matches :: String -> Language -> Bool
 matches = (. exts) . elem
@@ -69,13 +76,13 @@ possiblelangs :: String -> [Language]
 possiblelangs ext = filter (matches ext) langs
 
 getlangs :: Files -> Either KattisError [[Language]]
-getlangs = mapM (fun . (id &&& (possiblelangs . takeExtension)))
+getlangs = mapM $ fun . (id &&& (possiblelangs . takeExtension))
         where fun (f, []) = Left (UnknownExtension f)
               fun (_, l)  = Right l
 
 decidelang :: Files -> Either KattisError Language
-decidelang x = mul . (flip filter langs . flip possible) . zip x =<< getlangs x
-        where possible x = foldr ((&&) . elem x . snd) True
+decidelang x = mul . (flip filter langs . possible) . join zip =<< getlangs x
+        where possible a b= foldr ((&&) . elem b . snd) True a
               mul [a] = Right a
               mul  a  = Left . MultipleLanguages . map name $ a
 
