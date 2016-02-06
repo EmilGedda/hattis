@@ -1,26 +1,39 @@
 module Parser where
-import Text.ParserCombinators.Parsec
-import Control.Applicative hiding ((<|>), many, optional)
+import Lexer
+import Data.Char
+import Data.List
 
-data Token
-    = Comment String
-    | KeyVal  String String
-    | Section String
-    deriving Show
+type Schema = [Spec (String -> Bool)]
+type Settings = [Spec String]
 
-comment :: CharParser () Token
-comment = char '#' *> (Comment <$> manyTill anyChar eol)
+data Spec a 
+    = Section String [Spec a]
+    | KeyVal String a 
 
-group :: CharParser () Token 
-group = Section <$> between (char '[') (char ']') (many1 letter)
+instance Eq (Spec x) where 
+        (==) (Section a _) (Section b _) = a == b
+        (==) (KeyVal a _)  (KeyVal b _)  = a == b
 
-keyval :: CharParser () Token
-keyval = KeyVal <$> many1 letter <* string ": " <*> manyTill anyChar eol
+instance Ord (Spec x) where
+        compare (Section a _) (Section b _) = compare a b
+        compare (KeyVal  a _) (KeyVal  b _) = compare a b
 
-eol :: CharParser () ()
-eol = (comment *> return ()) <|> (optional (char '\r') *> newline *> return ())
+instance Show (Spec x) where
+        show (Section a b) = a ++ ": [" ++ (intercalate "," $ map show b) ++ "]"
+        show (KeyVal a _)  = a
 
-final = many $ many eol *> (keyval <|> group)
+valid :: Schema
+valid = let f fun = all (==True) . map fun in
+        [Section "user" [
+                KeyVal "username" (f isAlpha),      -- TODO: Research
+                KeyVal "token"    (f isHexDigit)
+            ],
+         Section "kattis" [
+                KeyVal "loginurl"      (f isAscii), -- TODO: Fix URL
+                KeyVal "submissionurl" (f isAscii)
+            ]
+        ]
 
-tokenize :: String -> Either ParseError [Token]
-tokenize = parse final "kattisrc"
+check (KeyVal a f) (KeyVal b c) = a == b && f c
+check (Section a x) (Section b y) = a == b && 
+                all (==True) (map (uncurry check) (zip x y))
