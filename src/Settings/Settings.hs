@@ -20,7 +20,7 @@ data Auth = Auth {submissionurl :: T.Text, token :: T.Text, username :: T.Text} 
 
 -- Returns the [(key, value)] of all fields in the .ini in FilePath
 loginAuth :: FilePath -> KattisApp Auth 
-loginAuth = wrapKattis . liftM (fmap (auth . sort) . join . fmap (settingsValid . concatMap M.toList . M.elems)) . parseIni
+loginAuth = wrapKattis . fmap (fmap (auth . sort) . join . fmap (settingsValid . concatMap M.toList . M.elems)) . parseIni
             where auth [(_,a),(_,b),(_,c)] = Auth a b c -- TODO: improve
 
 -- Verify that neededvalues is a subset of parsed settings
@@ -30,7 +30,7 @@ settingsValid s = bool (Left MalformedSettings) (Right filtered) check
                   check    = all (flip elem $ map fst s) neededvalues
 
 -- Try parsing the specified config file, kattisrc
-parseIni = liftM (either (Left . MiscError) (Right . I.unIni)) . I.readIniFile
+parseIni = fmap (either (Left . MiscError) (Right . I.unIni)) . I.readIniFile
 
 settingsExist :: FilePath -> KattisApp FilePath 
 settingsExist = (wrapKattis .) . fmap . bool (Left SettingsNotFound) . Right <*> doesFileExist 

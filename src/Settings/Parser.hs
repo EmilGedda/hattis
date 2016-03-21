@@ -2,6 +2,7 @@ module Parser where
 import Lexer
 import Data.Char
 import Data.List
+import System.Directory
 
 type Schema = [Spec (String -> Bool)]
 type Settings = [Spec String]
@@ -19,7 +20,7 @@ instance Ord (Spec x) where
         compare (KeyVal  a _) (KeyVal  b _) = compare a b
 
 instance Show (Spec x) where
-        show (Section a b) = a ++ ": [" ++ (intercalate "," $ map show b) ++ "]"
+        show (Section a b) = a ++ ": [" ++ intercalate "," (map show b) ++ "]"
         show (KeyVal a _)  = a
 
 valid :: Schema
@@ -35,5 +36,4 @@ valid = let f fun = all (==True) . map fun in
         ]
 
 check (KeyVal a f) (KeyVal b c) = a == b && f c
-check (Section a x) (Section b y) = a == b && 
-                all (==True) (map (uncurry check) (zip x y))
+check (Section a x) (Section b y) = a == b && all (==True) (zipWith check x y)
