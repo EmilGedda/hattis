@@ -27,7 +27,8 @@ data KattisError
     | MultipleLanguages [String] 
     | NotAFile [String]
     | UnknownLanguage String
-
+    | ErroneousSettings String String
+    | ParseFail String
 
 instance Show KattisError where
     show SettingsNotFound  = "Unable to locate kattisrc"
@@ -39,4 +40,7 @@ instance Show KattisError where
     show (MiscError str)    = str
     show (NotAFile files)   = "Provided arguments do not resolve to existing files: " ++ intercalate ", " files
     show (UnknownLanguage l) = "Provided language is not supported for language: " ++ l
+    show (ErroneousSettings sec key) = "Unable to find key '" ++ key ++ "' in section '" ++ sec ++ "', or key/value is malformed. \n Make sure the kattisrcis correctly formatted."
+    show (ParseFail str) = str
+
 

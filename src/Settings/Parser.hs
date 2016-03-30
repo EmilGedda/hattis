@@ -1,4 +1,4 @@
-module Settings.Parser (Setting(..), SettingsStorage) where
+module Settings.Parser (Setting(..), SettingsStorage, getKey, parse) where
 import Control.Arrow
 import Control.Monad
 import Data.Char
@@ -6,7 +6,7 @@ import Data.Maybe
 import Error
 import Settings.Lexer
 import System.Directory
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding (parse)
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
 
@@ -38,19 +38,19 @@ instance KeyVal Setting where
 
 valid :: Schema
 valid = let f fun = all (==True) . map fun in
-        [(Username, f isAlpha), (Token, f isHexDigit),
+        [(Username, f isAscii), (Token, f isHexDigit),
          (LoginUrl, f isAscii), (SubmissionUrl, f isAscii)]
 
 verify :: SettingsStorage -> Schema -> Either KattisError SettingsStorage
 verify sett = g . map (\(s,_) -> ErroneousSettings (key s) (val s))
                      . filter (not . snd) . map apply 
-        where apply (a,b) = (a, f $ b <$> getKey sett a)
+        where apply (a,b) = (a, f $ b <$> trygetKey sett a)
               f = fromMaybe False
               g [] = Right sett
               g (x:_) = Left x
 
 structure :: [Token] -> SettingsStorage 
-structure = M.fromList . map (second M.fromList . prepareMap) . L.groupBy issec  
+structure = M.fromList . map (second M.fromList . prepareMap) . L.groupBy issec 
         where issec (TSection _) (TKeyVal _ _) = True
               issec _ _ = False
 
@@ -61,7 +61,10 @@ prepareMap (TSection s:xs) = (s,map tuple xs)
 lexrc :: String -> Either KattisError SettingsStorage
 lexrc x = structure <$> tokenize x 
 
---test = ((`verify` valid) =<<) . lexrc <$> readFile "kattisrc"
+parse s = ((`verify` valid) =<<) . lexrc <$> readFile s
 
-getKey :: SettingsStorage -> Setting -> Maybe String
-getKey a b = (val b `M.lookup`) =<< (key b `M.lookup` a)
+trygetKey :: SettingsStorage -> Setting -> Maybe String
+trygetKey a b = (val b `M.lookup`) =<< (key b `M.lookup` a)
+
+getKey :: SettingsStorage -> Setting -> String
+getKey = (fromJust .) . trygetKey
