@@ -68,3 +68,7 @@ trygetKey a b = (val b `M.lookup`) =<< (key b `M.lookup` a)
 
 getKey :: SettingsStorage -> Setting -> String
 getKey = (fromJust .) . trygetKey
+
+
+-- TODO: Remove getKey. Only expose trygetKey which should return
+-- Either KattisError String instead of just string

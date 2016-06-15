@@ -1,4 +1,4 @@
-module SourceFile(Language, Files, FileExt, verifyfiles, fromStr) where
+module SourceFile(Language, Files, FileExt, fromStr, verifyfiles) where
 import Control.Arrow
 import Control.Monad
 import Data.Char
@@ -11,20 +11,20 @@ import qualified Data.List as L
 type Files = [String]
 
 data Language
-    = C 
+    = C
     | CSharp
     | Cpp
     | Go
-    | Haskell 
+    | Haskell
     | Java
     | JavaScript
-    | ObjectiveC 
-    | PHP 
+    | ObjectiveC
+    | PHP
     | Prolog
     | Python2
     | Python3
     | Ruby
-    deriving (Show, Read, Eq, Enum)
+    deriving (Show, Eq, Enum, Ord)
 
 class FileExt a where
     exts :: a -> [String]
@@ -42,49 +42,57 @@ instance FileExt Language where
     exts PHP        = [".php"]
     exts Prolog     = [".pl", ".prolog"]
     exts Python2    = [".py"]
-    exts Python3    = [".py"] --Todo: Solve python-ambiguity 
+    exts Python3    = [".py"] --Todo: Solve python-ambiguity
     exts Ruby       = [".rb"]
-    
+
     name CSharp     = "C#"
     name Cpp        = "C++"
     name ObjectiveC = "Objective-C"
     name Python2    = "Python 2"
     name Python3    = "Python 3"
     name x          = show x
-    
+
+
 fromStr :: String -> Either KattisError Language
 fromStr x = case filter ((==lower) . map toLower . snd) lang of
                 [] -> Left $ UnknownLanguage x
-                a:_ -> Right $ fst a 
+                a:_ -> Right $ fst a
             where lang  = map (id &&& name) langs
-                  lower = map toLower x 
+                  lower = map toLower x
 
 langs :: [Language]
-langs = enumFrom C 
+langs = enumFrom C
 
-matches :: String -> Language -> Bool
+matches :: FileExt a => String -> a -> Bool
 matches = (. exts) . elem
 
 allfiles :: Files -> KattisApp Files
-allfiles x = wrapKattis $ do 
-        nonexisting <- filter ((False==) . snd) . zip x <$> mapM doesFileExist x
-        return $ case nonexisting of
-                [] -> Right x
-                l  -> Left . NotAFile $ map fst l
+allfiles x = wrapKattis $ do
+        nonexisting <- filter ((False==) . snd) . zip x
+                        <$> (mapM doesFileExist =<< full)
+        case nonexisting of
+                [] -> Right <$> full
+                l  -> return . Left . NotAFile $ map fst l
+        where full = mapM getFullPath x
 
 possiblelangs :: String -> [Language]
-possiblelangs ext = filter (matches ext) langs
+possiblelangs = flip filter langs . matches
 
 getlangs :: Files -> Either KattisError [[Language]]
 getlangs = mapM $ fun . (id &&& (possiblelangs . takeExtension))
-        where fun (f, []) = Left (UnknownExtension f)
+        where fun (f, []) = Left $ UnknownExtension f
               fun (_, l)  = Right l
 
 decidelang :: Files -> Either KattisError Language
 decidelang x = mul . (flip filter langs . possible) . join zip =<< getlangs x
-        where possible a b= foldr ((&&) . elem b . snd) True a
+        where possible a b = all (elem b . snd) a
               mul [a] = Right a
               mul  a  = Left . MultipleLanguages . map name $ a
 
 verifyfiles :: Files -> KattisApp Language
 verifyfiles = (wrapKattis . return . decidelang =<<) . allfiles
+
+getFullPath :: String -> IO String
+getFullPath s = case splitPath s of
+                    "~/" : t -> joinPath . (: t) <$> getHomeDirectory
+                    _ -> return s
