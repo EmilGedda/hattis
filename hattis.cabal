@@ -15,12 +15,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src,
-                       src/Settings
-  exposed-modules:     Settings
-                     , GetOpt
-                     , Error
-                     , SourceFile
-                     , Arguments
+                       src/Hattis
+  exposed-modules:     Hattis,
+                       Hattis.GetOpt
+                       Hattis.Arguments
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , directory

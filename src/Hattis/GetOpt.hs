@@ -28,17 +28,18 @@
 -}
 -- Code modified by Emil Gedda 2015 & 2016
 
-module GetOpt
+module Hattis.GetOpt
     (OptionList,OptionSpecs,noArg,reqArg,optArg,makeOptions,parseOptions,
     isOption,getOption,getOptionOr)
 where
 
+import Control.Applicative
 import Control.Monad (when)
 import Data.Maybe
 import System.Console.GetOpt
     (getOpt,usageInfo,ArgOrder(Permute),OptDescr(..),ArgDescr(..))
 import System.IO (stdout,stderr,hPutStr,hPutStrLn, putStr)
-import System.Exit (ExitCode(..),exitWith, exitSuccess)
+import System.Exit (ExitCode(..),exitWith, exitSuccess, exitFailure)
 
 type OptVal a = (a,String)
 type ArgType a = a -> String -> ArgDescr (OptVal a)
@@ -67,18 +68,19 @@ parseOptions ::
 
 parseOptions argv defaults usage flags version versionStr help =
     case getOpt Permute flags argv of
-        (_,[],_) -> do 
-            putStr (usageInfo usage flags)
-            exitSuccess
         (args,files,[]) -> do
             when (isOption version args) $
-                do putStr versionStr
-                   exitSuccess
+                putStr versionStr >> exitSuccess
             when (isOption help args) $
-                do putStr (usageInfo usage flags)
-                   exitSuccess
+                putStr (usageInfo usage flags) >> exitSuccess
+            when (null files) $
+                putStr (usageInfo usage flags) >> exitFailure
             return (args ++ defaults, files)
-        (_,_,errs) -> do
+        (args,_,errs) -> do
+            when (isOption version args) $
+                putStr versionStr >> exitFailure
+            when (isOption help args) $
+                putStr (usageInfo usage flags) >> exitFailure
             hPutStrLn stderr (concat errs ++ usageInfo usage flags)
             exitWith (ExitFailure 1)
 
