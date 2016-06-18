@@ -11,4 +11,4 @@ unwrapError :: ErrorT a -> IO (Either String a)
 unwrapError = runExceptT . runError
 
 joinIO :: IO (ErrorT a) -> ErrorT a
-joinIO = ErrorT . ExceptT. (unwrapError =<<) 
+joinIO = ErrorT . ExceptT . (unwrapError =<<) 
