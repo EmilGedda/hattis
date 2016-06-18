@@ -1,8 +1,10 @@
-module Hattis.Ini where
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies #-}
+module Hattis.Ini(Setting(..), IniStorage, IniMapping, Ini) where
 import Control.Applicative hiding ((<|>), many, optional)
+import Control.Arrow hiding (first, second)
 import Control.Monad (void)
-import Data.Bifunctor
-import Data.Map hiding (empty, map)
+import Data.Bifunctor 
+import qualified Data.Map.Strict as M
 import Hattis.Error
 import Text.Megaparsec
 import Text.Megaparsec.Expr
@@ -32,10 +34,10 @@ tokenize = first ((++) "Error while parsing kattisrc: \n" . show)
                 . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
 
 -- Here starts the implementation of a Ini settings storage
-newtype MapStorage a = MapStorage { getStorage :: Map String (Map String a)}
+newtype IniStorage a = IniStorage { getStorage :: M.Map String (M.Map String a) }
 
-toStorage :: [Token] -> MapStorage String
-toStorage = MapStorage . fromList . map (second (fromList . map tupKV) . tupS)
+toStorage :: [Token] -> IniStorage String
+toStorage = IniStorage . M.fromList . map (second (M.fromList . map tupKV) . tupS)
         where tupS  (TSection a b) = (a,b)
               tupKV (TKeyVal  a b) = (a,b)
 
@@ -50,16 +52,16 @@ class IniMapping a where
     section :: a -> String
     key     :: a -> String
 
-class Ini i where 
-    getsetting :: i -> Setting -> Either String a
-    keyvalues  :: i -> [(String, [(Setting, a)])]
+class Ini i a | i -> a where 
+    getsetting :: Setting -> i -> Either String a
+    keyvalues  :: i -> [(String, [(String, a)])]
 
-    keys       :: i -> [Setting]
+    keys       :: i -> [String]
     keys       = extr fst 
     values     :: i -> [a]
     values     = extr snd 
 
-extr :: Ini i => ((Setting, a) -> b) -> i -> [b]
+extr :: Ini i a => ((String, a) -> b) -> i -> [b]
 extr f x = fmap f . snd =<< keyvalues x
 
 instance IniMapping Setting where
@@ -73,7 +75,12 @@ instance IniMapping Setting where
     key LoginUrl          = "loginurl"
     key SubmissionUrl     = "submissionurl"
 
--- TODO: this
-instance Ini (MapStorage a) where
-    getsetting = undefined
-    keyvalues  = undefined
+instance Ini (IniStorage a) a where
+    getsetting set stor = fun $ M.lookup (key set) =<< 
+                                M.lookup (section set) (getStorage stor)
+        where fun (Just x) = Right x
+              fun Nothing  = Left $ "Setting \"" ++ key set 
+                                ++ "\" not found in section \"" ++ section set 
+                                ++ "!\nPlease re-download kattisrc."
+
+    keyvalues = map (second M.toList) . M.toList . getStorage 
