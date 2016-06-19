@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies #-}
-module Hattis.Ini(Setting(..), IniStorage, IniMapping, Ini) where
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts #-}
+module Hattis.Text.Ini(Setting(..), IniStorage, IniMapping, Ini) where
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Arrow hiding (first, second)
 import Control.Monad (void)
@@ -7,7 +7,6 @@ import Data.Bifunctor
 import qualified Data.Map.Strict as M
 import Hattis.Error
 import Text.Megaparsec
-import Text.Megaparsec.Expr
 import Text.Megaparsec.String
 import qualified Text.Megaparsec.Lexer as L
 
@@ -29,11 +28,10 @@ sections' = TSection <$> between (char '[') (L.symbol sc "]") (some letterChar)
 keyvals' :: Parser Token
 keyvals' = TKeyVal <$> someTill letterChar (string ": ") <*> someTill anyChar eol
 
-tokenize :: String -> Either String [Token]
-tokenize = first ((++) "Error while parsing kattisrc: \n" . show) 
-                . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
+tokenize :: (MonadError HattisError m) => String -> m [Token]
+tokenize = either (throwError . ParseFail . show) return 
+           . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
 
--- Here starts the implementation of a Ini settings storage
 newtype IniStorage a = IniStorage { getStorage :: M.Map String (M.Map String a) }
 
 toStorage :: [Token] -> IniStorage String
@@ -53,7 +51,7 @@ class IniMapping a where
     key     :: a -> String
 
 class Ini i a | i -> a where 
-    getsetting :: Setting -> i -> Either String a
+    getsetting :: (MonadError HattisError m, IniMapping s) => s -> i -> m a
     keyvalues  :: i -> [(String, [(String, a)])]
 
     keys       :: i -> [String]
@@ -78,9 +76,7 @@ instance IniMapping Setting where
 instance Ini (IniStorage a) a where
     getsetting set stor = fun $ M.lookup (key set) =<< 
                                 M.lookup (section set) (getStorage stor)
-        where fun (Just x) = Right x
-              fun Nothing  = Left $ "Setting \"" ++ key set 
-                                ++ "\" not found in section \"" ++ section set 
-                                ++ "!\nPlease re-download kattisrc."
+        where fun (Just x) = return x
+              fun Nothing  = throwError $ ErroneousSettings (section set) (key set)
 
     keyvalues = map (second M.toList) . M.toList . getStorage 
