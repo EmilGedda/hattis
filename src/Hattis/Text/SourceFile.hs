@@ -1,10 +1,11 @@
-module SourceFile(Language, Files, FileExt, fromStr, verifyfiles) where
+{-# LANGUAGE FlexibleContexts #-}
+module Hattis.Text.SourceFile where
 import Control.Arrow
 import Control.Monad
 import Data.Char
 import Data.Either
 import System.Directory
-import Error
+import Hattis.Error
 import System.FilePath
 import qualified Data.List as L
 
@@ -53,10 +54,10 @@ instance FileExt Language where
     name x          = show x
 
 
-fromStr :: String -> Either KattisError Language
+fromStr :: (MonadError HattisError m) => String -> m Language
 fromStr x = case filter ((==lower) . map toLower . snd) lang of
-                [] -> Left $ UnknownLanguage x
-                a:_ -> Right $ fst a
+                [] -> throwError $ UnknownLanguage x
+                a:_ -> return $ fst a
             where lang  = map (id &&& name) langs
                   lower = map toLower x
 
@@ -66,31 +67,31 @@ langs = enumFrom C
 matches :: FileExt a => String -> a -> Bool
 matches = (. exts) . elem
 
-allfiles :: Files -> KattisApp Files
-allfiles x = wrapKattis $ do
-        nonexisting <- filter ((False==) . snd) . zip x
-                        <$> (mapM doesFileExist =<< full)
+allfiles :: (MonadError HattisError m) => Files -> IO (m Files)
+allfiles x = do
+        full <- mapM getFullPath x
+        existing <- mapM doesFileExist full
+        let nonexisting = filter ((False==) . snd) $ zip x existing
         case nonexisting of
-                [] -> Right <$> full
-                l  -> return . Left . NotAFile $ map fst l
-        where full = mapM getFullPath x
+            [] -> return $ return full
+            l -> return . throwError . NotAFile $ map fst l
 
 possiblelangs :: String -> [Language]
 possiblelangs = flip filter langs . matches
 
-getlangs :: Files -> Either KattisError [[Language]]
+getlangs :: (MonadError HattisError m) => Files -> m [[Language]]
 getlangs = mapM $ fun . (id &&& (possiblelangs . takeExtension))
-        where fun (f, []) = Left $ UnknownExtension f
-              fun (_, l)  = Right l
+        where fun (f, []) = throwError $ UnknownExtension f
+              fun (_, l)  = return l
 
-decidelang :: Files -> Either KattisError Language
+decidelang :: (MonadError HattisError m) => Files -> m Language
 decidelang x = mul . (flip filter langs . possible) . join zip =<< getlangs x
         where possible a b = all (elem b . snd) a
-              mul [a] = Right a
-              mul  a  = Left . MultipleLanguages . map name $ a
+              mul [a] = return a
+              mul  a  = throwError . MultipleLanguages . map name $ a
 
-verifyfiles :: Files -> KattisApp Language
-verifyfiles = (wrapKattis . return . decidelang =<<) . allfiles
+verifyfiles :: (MonadError HattisError m1) => Files -> IO (m1 Language)
+verifyfiles = liftM (decidelang =<<) . allfiles
 
 getFullPath :: String -> IO String
 getFullPath s = case splitPath s of
