@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts #-}
-module Hattis.Text.Ini(Setting(..), IniStorage, IniMapping, Ini) where
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies #-}
+module Hattis.Text.Ini(Setting(..), IniStorage, IniMapping, Ini, loadSettings) where
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Arrow hiding (first, second)
 import Control.Monad (void)
@@ -8,6 +8,9 @@ import qualified Data.Map.Strict as M
 import Hattis.Error
 import Text.Megaparsec
 import Text.Megaparsec.String
+import System.Directory
+import System.Environment
+import System.FilePath
 import qualified Text.Megaparsec.Lexer as L
 
 
@@ -31,6 +34,31 @@ keyvals' = TKeyVal <$> someTill letterChar (string ": ") <*> someTill anyChar eo
 tokenize :: (MonadError HattisError m) => String -> m [Token]
 tokenize = either (throwError . ParseFail . show) return 
            . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
+
+exist :: (MonadError HattisError m) => FilePath -> IO (m String)
+exist x = do 
+        e <- doesFileExist x
+        case e of
+            True -> liftM return $ readFile x
+            False -> return $ throwError SettingsNotFound
+
+location :: IO FilePath
+location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
+            where defval = (</> ending ".config") <$> getHomeDirectory
+                  fun    = return ending
+                  ending = (</> "hattis" </> "kattisrc")
+
+-- TODO: clean this up
+loadSettings :: MonadError HattisError m => [Char] -> IO (m (IniStorage String))
+loadSettings [] = (fun =<<) <$> (exist =<< location) 
+                where fun x = toStorage <$> tokenize x
+loadSettings s  = (fun =<<) <$> exist s 
+                where fun x = toStorage <$> tokenize x
+
+-- debug stuff
+print' :: Either HattisError [Token] -> IO ()
+print' (Left x) = (putStrLn . show) x
+print' (Right t) = mapM_ (putStrLn . show) t
 
 newtype IniStorage a = IniStorage { getStorage :: M.Map String (M.Map String a) }
 
