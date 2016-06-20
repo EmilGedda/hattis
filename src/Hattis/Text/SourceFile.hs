@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Hattis.Text.SourceFile where
+module Hattis.Text.SourceFile (langs, FileExt, Language, name) where
 import Control.Arrow
 import Control.Monad
 import Data.Char

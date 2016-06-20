@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies #-}
-module Hattis.Text.Ini(Setting(..), IniStorage, IniMapping, Ini, loadSettings) where
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts #-}
+module Hattis.Text.Ini(Setting(..), IniStorage, IniMapping, Ini(..), loadSettings) where
 import Control.Applicative hiding ((<|>), many, optional)
 import Control.Arrow hiding (first, second)
 import Control.Monad (void)
@@ -49,7 +49,7 @@ location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
                   ending = (</> "hattis" </> "kattisrc")
 
 -- TODO: clean this up
-loadSettings :: MonadError HattisError m => [Char] -> IO (m (IniStorage String))
+--loadSettings :: [Char] -> IO (Either HattisError (IniStorage String))
 loadSettings [] = (fun =<<) <$> (exist =<< location) 
                 where fun x = toStorage <$> tokenize x
 loadSettings s  = (fun =<<) <$> exist s 

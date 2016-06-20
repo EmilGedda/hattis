@@ -17,13 +17,17 @@ library
   hs-source-dirs:      src,
                        src/Hattis
   exposed-modules:     Hattis,
+                       Hattis.Error,
                        Hattis.GetOpt
                        Hattis.Arguments
+                       Hattis.Text.SourceFile
+                       Hattis.Text.Ini
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , directory
                      , filepath
                      , megaparsec 
+                     , optparse-applicative >= 0.12 && <= 0.15
                      , containers
   default-language:    Haskell2010
 
@@ -34,6 +38,8 @@ executable hattis
   build-depends:       base
                      , hattis
                      , mtl
+                     , deepseq
+                     , optparse-applicative >= 0.12 && <= 0.15
   default-language:    Haskell2010
 
 test-suite hattis-test
