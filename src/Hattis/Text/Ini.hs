@@ -12,7 +12,7 @@ import System.Directory
 import System.Environment
 import System.FilePath
 import qualified Text.Megaparsec.Lexer as L
-
+import Control.Concurrent
 
 -- Below is the parser section
 data Token
@@ -35,8 +35,9 @@ tokenize :: (MonadError HattisError m) => String -> m [Token]
 tokenize = either (throwError . ParseFail . show) return 
            . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
 
-exist :: (MonadError HattisError m) => FilePath -> IO (m String)
+exist :: FilePath -> IO (Either HattisError String)
 exist x = do 
+        threadDelay 5000000
         e <- doesFileExist x
         case e of
             True -> liftM return $ readFile x
@@ -49,10 +50,10 @@ location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
                   ending = (</> "hattis" </> "kattisrc")
 
 -- TODO: clean this up
---loadSettings :: [Char] -> IO (Either HattisError (IniStorage String))
-loadSettings [] = (fun =<<) <$> (exist =<< location) 
+loadSettings :: [Char] -> ExceptT HattisError IO (IniStorage String)
+loadSettings [] = ExceptT $ (fun =<<) <$> (exist =<< location) 
                 where fun x = toStorage <$> tokenize x
-loadSettings s  = (fun =<<) <$> exist s 
+loadSettings s  = ExceptT $ (fun =<<) <$> exist s 
                 where fun x = toStorage <$> tokenize x
 
 -- debug stuff

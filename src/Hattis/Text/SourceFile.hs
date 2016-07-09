@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Hattis.Text.SourceFile (langs, FileExt, Language, name) where
+module Hattis.Text.SourceFile (langs, FileExt, Language, name, verifyfiles) where
 import Control.Arrow
 import Control.Monad
 import Data.Char
@@ -90,7 +90,7 @@ decidelang x = mul . (flip filter langs . possible) . join zip =<< getlangs x
               mul [a] = return a
               mul  a  = throwError . MultipleLanguages . map name $ a
 
-verifyfiles :: (MonadError HattisError m1) => Files -> IO (m1 Language)
+verifyfiles :: Files -> IO (Either HattisError Language)
 verifyfiles = liftM (decidelang =<<) . allfiles
 
 getFullPath :: String -> IO String

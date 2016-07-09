@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving #-}
 import Control.DeepSeq
 import Hattis.Text.SourceFile
 import Hattis.Text.Ini
@@ -7,14 +7,24 @@ import Options.Applicative
 import Data.Bifunctor
 import Data.List
 import Data.Maybe
+import Data.Either
 import Hattis.Arguments
 import System.Environment
 import System.Exit
+import Debug.Trace
+import Control.Monad.Writer.Lazy
+import Control.Concurrent
 
-versionstr = "hattis v1.0.0\nCopyright (C) 2016 Emil Gedda"
+newtype Hattis a = Hattis {
+        runHattis :: ExceptT HattisError (WriterT [String] IO) a
+    } deriving (Monad, MonadIO, MonadWriter [String], 
+                MonadError HattisError, Applicative, Functor)
+
+hattisver = "v1.0.0"
+versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
 
 data Verbosity = Silent | Normal
-data Input = Input { id :: String, files :: [String], 
+data Input = Input { probid :: String, files :: [String], 
                      conf :: Maybe String, force :: Bool,
                      lang :: Maybe String, mainclass :: Maybe String,
                      silent :: Bool } 
@@ -59,8 +69,11 @@ cmdopts = Input
                         ++ " before submission to kattis. A positive return code (>0) corresponds to"
                         ++ " a test case on kattis the submission failed. A return code of 0 means"
                         ++ " the submission was submited succesfully and passed all test cases."))
+
 main :: IO ()
-main = execParser opts >>= maybe (putStrLn versionstr) run
+main = execParser opts >>= maybe (putStrLn versionstr) (finalize . run)
+                    
+
     where veropts = flag' Nothing (long "version" 
                                     <> help "Display hattis version" 
                                     <> hidden) <|> (Just <$> cmdopts)
@@ -69,14 +82,29 @@ main = execParser opts >>= maybe (putStrLn versionstr) run
             <> progDesc "Submit a solution to a problem on kattis"
             <> header "Hattis - A command line interface to the online judge coding kattis")
 
-handler x =  putStrLn "Error!" >> x
+finalize :: Hattis ExitCode -> IO a 
+finalize w = do
+    (res, out) <- runWriterT . runExceptT . runHattis $ w  
+    mapM_ putStrLn out 
+    exit <- catcherr res
+    exitWith exit
 
---run :: Input -> IO ()
+catcherr :: Either HattisError a -> IO ExitCode
+catcherr (Left err) = do 
+            putStrLn $ show err
+            case err of
+                TestCaseFailed num _ _ -> return $ ExitFailure num 
+                _ -> return $ ExitFailure (-1)
+catcherr _ = do 
+            putStrLn "Submission accepted!"
+            return ExitSuccess
+
+run :: Input -> Hattis ExitCode
 run input = do 
-    let tmp = loadSettings
-    w <- maybe (tmp []) tmp (conf input) 
-    --return () <* fmap putStrLn (getsetting Username w)
+    tell ["Starting hattis"]
+    settings <- writer (maybe (loadSettings []) loadSettings (conf input), ["Loaded settings"])
+    --let a = getsetting Username settings
+    --let s = either (return . show) return =<< runExceptT (getsetting Username =<< loadSettings [])
+    language <- writer (verifyfiles $ files input, ["Decided language"])
+    return ExitSuccess
 
-    --putStrLn "Here"
-
-    return ()

@@ -13,6 +13,7 @@ data HattisError
     | NotAFile [String]
     | ParseFail String
     | SettingsNotFound
+    | TestCaseFailed Int String (Maybe String)
     | UnknownExtension String
     | UnknownLanguage String
     | UploadFailed
@@ -29,3 +30,4 @@ instance Show HattisError where
     show (UnknownLanguage l) = "Provided language is not supported for language: " ++ l
     show (ErroneousSettings sec key) = "Unable to find key '" ++ key ++ "' in section '" ++ sec ++ "', or key/value is malformed.\nMake sure the kattisrc is correctly formatted."
     show (ParseFail str) = "An error occured while parsing kattisrc:\n" ++  str
+    show (TestCaseFailed num err desc) = "Submission failed at test case: " ++ show num ++ "\nError by kattis:\n" ++ err ++ maybe "" ("Test case description:\n"++) desc
