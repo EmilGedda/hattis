@@ -11,13 +11,13 @@ import Network.HTTP.Simple
 import System.FilePath
 import qualified Data.Text as T
 
-login :: (MonadIO mio, MonadError HattisError merr) => ByteString -> ByteString -> String -> mio (merr CookieJar)
+--login :: (MonadIO mio, MonadError HattisError merr) => ByteString -> ByteString -> String -> mio (merr CookieJar)
 login user token url = liftIO $ do
         req' <- parseRequest url
         let request 
-                = setRequestQueryString [ ("user", Just user)
-                                        , ("token", Just token)
-                                        , ("script", Just "true")]
+                = urlEncodedBody [ ("user", user)
+                                 , ("token", token)
+                                 , ("script", "true")]
                 $ setRequestSecure True
                 $ setRequestPort 443 -- necessary?
                 $ req'
@@ -32,7 +32,7 @@ login user token url = liftIO $ do
 login' user token url = liftIO $ do
         req' <- parseRequest url
         let request 
-                = setRequestQueryString [("user", Just user), ("token", Just token)]
+                = urlEncodedBody [("user", user), ("token", token), ("script", "true")]
                 $ setRequestSecure True
                 $ setRequestPort 443 -- necessary?
                 $ req'
@@ -40,36 +40,24 @@ login' user token url = liftIO $ do
         putStrLn . show $ responseHeaders response
         return $ responseCookieJar response
 
-submit
-  :: MonadIO m =>
-     CookieJar
-     -> String
-     -> ByteString
-     -> [FilePath]
-     -> ByteString
-     -> Maybe ByteString
-     -> Maybe ByteString
-     -> m ()
 submit cookiejar url prob files lang main tag = liftIO $ do
         req' <- parseRequest url
         let reqheaders
-                = setRequestQueryString [ ("submit", Just "true")
-                                        , ("submit_ctr", Just "2")
-                                        , ("script", Just "true")
-                                        , ("language", Just lang)
-                                        , ("mainclass", main)
-                                        , ("problem", Just prob)
-                                        , ("tag", tag)
-                                        , ("type", Just "files")
-                                        , ("sub_code", Nothing)]
-                $ setRequestSecure True
+                = setRequestSecure True
                 $ setRequestPort 443
                 $ req' { cookieJar = Just cookiejar }
-        let parts = map (partFile "sub_file[]")  files
+        let parts = map (uncurry partBS) [ ("submit", "true")
+                                       , ("submit_ctr", "2")
+                                       , ("script", "true")
+                                       , ("language", lang)
+                                       , ("mainclass", fromMaybe "" main)
+                                       , ("problem", prob)
+                                       , ("tag", fromMaybe "" tag)
+                                       , ("type", "files")]
+                                       ++ map (partFile "sub_file[]")  files
         boundary <- webkitBoundary
         request <- formDataBodyWithBoundary boundary parts reqheaders
-        let tmp = setRequestSecure True $ request {cookieJar = Just cookiejar }
-        response <- httpLBS tmp
+        response <- httpLBS request
         putStrLn . show $ response
 
 testsubmit user token loginurl submurl prob files lang = do
