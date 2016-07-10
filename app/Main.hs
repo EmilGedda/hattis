@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving #-}
-import Control.DeepSeq
 import Hattis.Text.SourceFile
 import Hattis.Text.Ini
 import Hattis.Error

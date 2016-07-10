@@ -6,6 +6,7 @@ import Data.List
 
 data HattisError
     = ErroneousSettings String String
+    | LoginFailed Int String
     | MalformedSettings
     | MiscError String
     | MultipleLanguages [String] 
@@ -19,6 +20,7 @@ data HattisError
     | UploadFailed
 
 instance Show HattisError where
+    show (LoginFailed code msg) = "Unable to login! The server responded with: " ++ show code ++ " " ++ msg
     show SettingsNotFound  = "Unable to locate kattisrc"
     show NoInternet        = "Unable to find an active internet connection"
     show UploadFailed      = "The upload was unable to complete"
