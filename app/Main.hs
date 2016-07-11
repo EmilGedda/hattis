@@ -16,8 +16,7 @@ import Control.Concurrent
 
 newtype Hattis a = Hattis {
         runHattis :: ExceptT HattisError (WriterT [String] IO) a
-    } deriving (Monad, MonadIO, MonadWriter [String], 
-                MonadError HattisError, Applicative, Functor)
+    } deriving (Monad, Applicative, Functor)
 
 hattisver = "v1.0.0"
 versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
@@ -100,10 +99,16 @@ catcherr _ = do
 
 run :: Input -> Hattis ExitCode
 run input = do 
-    tell ["Starting hattis"]
-    settings <- writer (maybe (loadSettings []) loadSettings (conf input), ["Loaded settings"])
-    --let a = getsetting Username settings
-    --let s = either (return . show) return =<< runExceptT (getsetting Username =<< loadSettings [])
-    language <- writer (verifyfiles $ files input, ["Decided language"])
+    --tell ["Starting hattis"]
+    --loadSettings :: [Char] -> ExceptT HattisError IO (IniStorage String)
+    settings <- Hattis $ writer (maybe (loadSettings []) loadSettings (conf input),[])
+--w    user <- Hattis $ writer (getsetting Username settings, [])
+    --user <- Hattis $ writer (getsetting Username =<< settings, []-- This does not work
+    --tell ["Test: " ++ user]
+--    language <- writer (verifyfiles $ files input, ["Decided language"])
     return ExitSuccess
 
+--test :: (Ini i a) => i -> Hattis a
+test x =  Hattis $ writer (toIO $ getsetting Username x, [])
+        where toIO :: a -> IO a
+              toIO = return
