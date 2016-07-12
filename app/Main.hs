@@ -2,11 +2,10 @@
 import Control.Concurrent
 import Control.Monad.Writer.Lazy
 import Data.Bifunctor
+import Data.Char
 import Data.Either
 import Data.List
 import Data.Maybe
-import Debug.Trace
-import Hattis.Arguments
 import Hattis.Error
 import Hattis.Network
 import Hattis.Text.Ini
@@ -14,6 +13,7 @@ import Hattis.Text.SourceFile
 import Options.Applicative
 import System.Environment
 import System.Exit
+import System.IO
 
 newtype Hattis a = Hattis {
         runHattis :: ExceptT HattisError (WriterT [String] IO) a
@@ -52,7 +52,7 @@ cmdopts = Input
                 <> short 'l'
                 <> metavar "LANGUAGE"
                 <> help ("Override automatic language selection with LANGUAGE. "
-                        ++ "Available languages are: " ++ (intercalate ", " $ map name langs))))
+                        ++ "Available languages are: " ++ intercalate ", " (map name langs))))
         <*> optional 
             (strOption
                 (long "main"
@@ -71,7 +71,7 @@ cmdopts = Input
                         ++ " the submission was submited succesfully and passed all test cases."))
 
 main :: IO ()
-main = execParser opts >>= maybe (putStrLn versionstr) (\i -> finalize i $ run i)
+main = execParser opts >>= maybe (putStrLn versionstr) (finalize <*> run)
     where veropts = flag' Nothing (long "version" 
                                     <> help "Display hattis version" 
                                     <> hidden) <|> (Just <$> cmdopts)
@@ -80,44 +80,53 @@ main = execParser opts >>= maybe (putStrLn versionstr) (\i -> finalize i $ run i
             <> progDesc "Submit a solution to a problem on kattis"
             <> header "Hattis - A command line interface to the online judge coding kattis")
 
-finalize :: Input -> Hattis ExitCode -> IO a 
+finalize :: Input -> Hattis () -> IO a 
 finalize i w = do
-    (res, out) <- runWriterT . runExceptT . runHattis $ w  
+    ~(res, out) <- runWriterT . runExceptT . runHattis $ w  
     unless (silent i) (mapM_ putStrLn out)
     exit <- catcherr res
     exitWith exit
 
 catcherr :: Either HattisError a -> IO ExitCode
 catcherr (Left err) = do 
-            putStrLn $ show err
-            case err of
-                TestCaseFailed num _ _ -> return $ ExitFailure num 
-                _ -> return $ ExitFailure 1
+            print err
+            return $ case err of
+                TestCaseFailed num _ _ -> ExitFailure num 
+                SubmissionDenied -> ExitSuccess
+                _ -> ExitFailure 1
 catcherr _ = return ExitSuccess
 
-run :: Input -> Hattis ExitCode
+run :: Input -> Hattis ()
 run input = do 
     let problem = probid input
-    tell ["Loading settings..."]
+    println "Loading settings..."
     settings <- wrap $ maybe (loadSettings []) loadSettings (conf input)
 
     user  <- getsetting Username settings
-    tell ["Found user: " ++ user]
     token <- getsetting Token settings
     lurl  <- getsetting LoginUrl settings
     surl  <- getsetting SubmissionUrl settings
 
-    tell ["Deciding language..."]
+    println "Deciding language..."
     language <- wrap $ maybe (verifyfiles $ files input) (return . fromStr) (lang input)
-    tell ["Language chosen: " ++ name language]
-    tell ["Logging into kattis..."]
-    cookies <- wrap $ login user token lurl
-    tell ["Submitting solution..."]
-    response <- wrap $ submit cookies surl problem  (files input) (name language) Nothing Nothing
-    tell [response]
+    println $ "User:       " ++ user
+    println $ "Language:   " ++ name language
+    println $ "Problem ID: " ++ problem
+    println $ "Files:      " ++ intercalate ", " (files input)
 
-    return ExitSuccess
+    unless (force input) $ do
+            liftIO $ putStr "Submit? (y/n): " *> hFlush stdout
+            line <- liftIO $ map toLower <$> getLine
+            unless (line `isPrefixOf` "yes") $ throwError SubmissionDenied
+
+    println "Logging into kattis..."
+    cookies <- wrap $ login user token lurl
+    println "Submitting solution..."
+    id <- wrap $ submit cookies surl problem  (files input) (name language) Nothing Nothing
+    println $ "Submission ID: " ++ show id
 
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
     return (val,[])
+
+println = liftIO . putStrLn 

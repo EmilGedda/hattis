@@ -38,9 +38,8 @@ tokenize = either (throwError . ParseFail . show) return
 exist :: (MonadIO mio, MonadError HattisError merr) => FilePath -> mio (merr String)
 exist x = liftIO $ do 
         e <- doesFileExist x
-        case e of
-            True -> liftM return $ readFile x
-            False -> return $ throwError SettingsNotFound
+        if e then return <$> readFile x
+        else return $ throwError SettingsNotFound
 
 location :: IO FilePath
 location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
@@ -54,11 +53,6 @@ loadSettings [] = liftIO $ (fun =<<) <$> (exist =<< location)
                 where fun x = toStorage <$> tokenize x
 loadSettings s  = liftIO $ (fun =<<) <$> exist s 
                 where fun x = toStorage <$> tokenize x
-
--- debug stuff
-print' :: Either HattisError [Token] -> IO ()
-print' (Left x) = (putStrLn . show) x
-print' (Right t) = mapM_ (putStrLn . show) t
 
 newtype IniStorage a = IniStorage { getStorage :: M.Map String (M.Map String a) }
 

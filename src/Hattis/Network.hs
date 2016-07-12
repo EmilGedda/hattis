@@ -2,9 +2,10 @@
 module Hattis.Network(login, submit) where
 import Control.Arrow
 import Control.Exception (try)
-import Data.ByteString.Lazy hiding (putStrLn, map)
+import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, takeWhile)
 import qualified Data.ByteString.UTF8 as B
 import qualified Data.ByteString.Lazy.UTF8 as LB
+import Data.Char
 import Data.Maybe
 import Hattis.Error
 import Network.HTTP.Client.MultipartFormData
@@ -35,28 +36,16 @@ login user token url = liftIO $ do
                                     200  -> return $ responseCookieJar response
                                     code -> throwError $ LoginFailed code "nomsg" -- TODO: fix msg
 
---login :: (MonadIO mio, MonadError HattisError merr) => ByteString -> ByteString -> String -> mio (merr CookieJar)
-login' user token url = liftIO $ do --used for testing only
-        req' <- parseRequest url
-        let request 
-                = urlEncodedBody [("user", user), ("token", token), ("script", "true")]
-                $ setRequestSecure True
-                $ setRequestPort 443 -- necessary?
-                $ req'
-        response <- httpLBS request
-        putStrLn . show $ getResponseBody response
-        return $ responseCookieJar response
-
---submit
---  :: (MonadIO mio, MonadError HattisError merr)
---     => CookieJar
---     -> String
---     -> String
---     -> [FilePath]
---     -> String
---     -> Maybe String
---     -> Maybe String
---     -> mio (merr String)
+submit
+  :: (MonadIO mio, MonadError HattisError merr)
+     => CookieJar
+     -> String
+     -> String
+     -> [FilePath]
+     -> String
+     -> Maybe String
+     -> Maybe String
+     -> mio (merr Integer)
 submit cookiejar url prob files lang main tag = liftIO $ do
         req' <- parseRequest url
         let reqheaders
@@ -78,10 +67,7 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return . LB.toString $ getResponseBody response
+                                    200  -> return . filtr . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
+        where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
 
-testsubmit user token loginurl submurl prob files lang = do
-            cookies <- login' user token loginurl
-            submit cookies submurl prob files lang Nothing Nothing
-    

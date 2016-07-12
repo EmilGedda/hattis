@@ -90,8 +90,8 @@ decidelang x = mul . (flip filter langs . possible) . join zip =<< getlangs x
               mul [a] = return a
               mul  a  = throwError . MultipleLanguages . map name $ a
 
-verifyfiles :: Files -> IO (Either HattisError Language)
-verifyfiles = liftM (decidelang =<<) . allfiles
+verifyfiles :: (MonadError HattisError m, MonadIO mio) => Files -> mio (m Language)
+verifyfiles = liftIO . fmap (decidelang =<<) . allfiles
 
 getFullPath :: String -> IO String
 getFullPath s = case splitPath s of

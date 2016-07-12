@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Hattis.Error (HattisError(..), module Control.Monad.Except) where
 
 import Control.Monad.Except
@@ -18,6 +17,8 @@ data HattisError
     | UnknownExtension String
     | UnknownLanguage String
     | SubmissionFailed Int
+    | SubmissionDenied
+
 instance Show HattisError where
     show (LoginFailed code msg) = "Unable to login! The server responded with: " ++ show code ++ " " ++ msg
     show SettingsNotFound  = "Unable to locate kattisrc"
@@ -32,3 +33,4 @@ instance Show HattisError where
     show (ErroneousSettings sec key) = "Unable to find key '" ++ key ++ "' in section '" ++ sec ++ "', or key/value is malformed.\nMake sure the kattisrc is correctly formatted."
     show (ParseFail str) = "An error occured while parsing kattisrc:\n" ++  str
     show (TestCaseFailed num err desc) = "Submission failed at test case: " ++ show num ++ "\nError by kattis:\n" ++ err ++ maybe "" ("Test case description:\n"++) desc
+    show SubmissionDenied = "Submission declined."

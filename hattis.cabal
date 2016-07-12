@@ -16,12 +16,10 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src,
                        src/Hattis
-  exposed-modules:     Hattis,
-                       Hattis.Arguments
-                       Hattis.Error,
-                       Hattis.Network
-                       Hattis.Text.Ini
-                       Hattis.Text.SourceFile
+  exposed-modules:     Hattis.Error
+                     , Hattis.Network
+                     , Hattis.Text.Ini
+                     , Hattis.Text.SourceFile
   build-depends:       base >= 4.7 && < 5
                      , utf8-string
                      , bytestring
