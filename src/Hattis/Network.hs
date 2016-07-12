@@ -2,7 +2,9 @@
 module Hattis.Network(login, submit) where
 import Control.Arrow
 import Control.Exception (try)
-import Data.ByteString hiding (putStrLn, map)
+import Data.ByteString.Lazy hiding (putStrLn, map)
+import qualified Data.ByteString.UTF8 as B
+import qualified Data.ByteString.Lazy.UTF8 as LB
 import Data.Maybe
 import Hattis.Error
 import Network.HTTP.Client.MultipartFormData
@@ -13,20 +15,19 @@ import qualified Data.Text as T
 
 login 
     :: (MonadIO mio, MonadError HattisError merr) 
-        => ByteString 
-        -> ByteString 
+        => String 
+        -> String 
         -> String 
         -> mio (merr CookieJar)
 login user token url = liftIO $ do
         req' <- parseRequest url
         let request 
-                = urlEncodedBody [ ("user", user)
-                                 , ("token", token)
+                = urlEncodedBody [ ("user", B.fromString user)
+                                 , ("token", B.fromString token)
                                  , ("script", "true")]
                 $ setRequestSecure True
                 $ setRequestPort 443 -- necessary?
                 $ req'
-        putStrLn "Logging in..."
         mbresponse <- try $ httpLBS request
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
@@ -46,16 +47,16 @@ login' user token url = liftIO $ do --used for testing only
         putStrLn . show $ getResponseBody response
         return $ responseCookieJar response
 
-submit
-  :: (MonadIO mio, MonadError HattisError merr)
-     => CookieJar
-     -> String
-     -> ByteString
-     -> [FilePath]
-     -> ByteString
-     -> Maybe ByteString
-     -> Maybe ByteString
-     -> mio (merr CookieJar)
+--submit
+--  :: (MonadIO mio, MonadError HattisError merr)
+--     => CookieJar
+--     -> String
+--     -> String
+--     -> [FilePath]
+--     -> String
+--     -> Maybe String
+--     -> Maybe String
+--     -> mio (merr String)
 submit cookiejar url prob files lang main tag = liftIO $ do
         req' <- parseRequest url
         let reqheaders
@@ -65,20 +66,19 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         let parts = map (uncurry partBS) [ ("submit", "true")
                                        , ("submit_ctr", "2")
                                        , ("script", "true")
-                                       , ("language", lang)
-                                       , ("mainclass", fromMaybe "" main)
-                                       , ("problem", prob)
-                                       , ("tag", fromMaybe "" tag)
+                                       , ("language", B.fromString lang)
+                                       , ("mainclass", fromMaybe ""  $ B.fromString <$> main)
+                                       , ("problem", B.fromString prob)
+                                       , ("tag", fromMaybe "" $ B.fromString <$> tag)
                                        , ("type", "files")]
                                        ++ map (partFile "sub_file[]")  files
         boundary <- webkitBoundary
         request  <- formDataBodyWithBoundary boundary parts reqheaders
-        putStrLn "Submitting solution..."
         mbresponse <- try $ httpLBS request
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return $ responseCookieJar response
+                                    200  -> return . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
 
 testsubmit user token loginurl submurl prob files lang = do

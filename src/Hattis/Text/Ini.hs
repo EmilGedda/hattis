@@ -35,9 +35,8 @@ tokenize :: (MonadError HattisError m) => String -> m [Token]
 tokenize = either (throwError . ParseFail . show) return 
            . parse (sc *> many (sections' <* sc) <* eof)  "kattisrc" 
 
-exist :: FilePath -> IO (Either HattisError String)
-exist x = do 
-        threadDelay 5000000
+exist :: (MonadIO mio, MonadError HattisError merr) => FilePath -> mio (merr String)
+exist x = liftIO $ do 
         e <- doesFileExist x
         case e of
             True -> liftM return $ readFile x
@@ -50,10 +49,10 @@ location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
                   ending = (</> "hattis" </> "kattisrc")
 
 -- TODO: clean this up
-loadSettings :: [Char] -> ExceptT HattisError IO (IniStorage String)
-loadSettings [] = ExceptT $ (fun =<<) <$> (exist =<< location) 
+loadSettings :: (MonadIO mio, MonadError HattisError merr) => String -> mio (merr (IniStorage String))
+loadSettings [] = liftIO $ (fun =<<) <$> (exist =<< location) 
                 where fun x = toStorage <$> tokenize x
-loadSettings s  = ExceptT $ (fun =<<) <$> exist s 
+loadSettings s  = liftIO $ (fun =<<) <$> exist s 
                 where fun x = toStorage <$> tokenize x
 
 -- debug stuff

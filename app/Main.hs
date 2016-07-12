@@ -1,22 +1,24 @@
-{-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving #-}
-import Hattis.Text.SourceFile
-import Hattis.Text.Ini
-import Hattis.Error
-import Options.Applicative
+{-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving, OverloadedStrings #-}
+import Control.Concurrent
+import Control.Monad.Writer.Lazy
 import Data.Bifunctor
+import Data.Either
 import Data.List
 import Data.Maybe
-import Data.Either
+import Debug.Trace
 import Hattis.Arguments
+import Hattis.Error
+import Hattis.Network
+import Hattis.Text.Ini
+import Hattis.Text.SourceFile
+import Options.Applicative
 import System.Environment
 import System.Exit
-import Debug.Trace
-import Control.Monad.Writer.Lazy
-import Control.Concurrent
 
 newtype Hattis a = Hattis {
         runHattis :: ExceptT HattisError (WriterT [String] IO) a
-    } deriving (Monad, Applicative, Functor)
+    } deriving (Monad, Applicative, Functor, MonadIO, 
+                MonadError HattisError, MonadWriter [String])
 
 hattisver = "v1.0.0"
 versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
@@ -69,9 +71,7 @@ cmdopts = Input
                         ++ " the submission was submited succesfully and passed all test cases."))
 
 main :: IO ()
-main = execParser opts >>= maybe (putStrLn versionstr) (finalize . run)
-                    
-
+main = execParser opts >>= maybe (putStrLn versionstr) (\i -> finalize i $ run i)
     where veropts = flag' Nothing (long "version" 
                                     <> help "Display hattis version" 
                                     <> hidden) <|> (Just <$> cmdopts)
@@ -80,10 +80,10 @@ main = execParser opts >>= maybe (putStrLn versionstr) (finalize . run)
             <> progDesc "Submit a solution to a problem on kattis"
             <> header "Hattis - A command line interface to the online judge coding kattis")
 
-finalize :: Hattis ExitCode -> IO a 
-finalize w = do
+finalize :: Input -> Hattis ExitCode -> IO a 
+finalize i w = do
     (res, out) <- runWriterT . runExceptT . runHattis $ w  
-    mapM_ putStrLn out 
+    unless (silent i) (mapM_ putStrLn out)
     exit <- catcherr res
     exitWith exit
 
@@ -92,23 +92,32 @@ catcherr (Left err) = do
             putStrLn $ show err
             case err of
                 TestCaseFailed num _ _ -> return $ ExitFailure num 
-                _ -> return $ ExitFailure (-1)
-catcherr _ = do 
-            putStrLn "Submission accepted!"
-            return ExitSuccess
+                _ -> return $ ExitFailure 1
+catcherr _ = return ExitSuccess
 
 run :: Input -> Hattis ExitCode
 run input = do 
-    --tell ["Starting hattis"]
-    --loadSettings :: [Char] -> ExceptT HattisError IO (IniStorage String)
-    settings <- Hattis $ writer (maybe (loadSettings []) loadSettings (conf input),[])
---w    user <- Hattis $ writer (getsetting Username settings, [])
-    --user <- Hattis $ writer (getsetting Username =<< settings, []-- This does not work
-    --tell ["Test: " ++ user]
---    language <- writer (verifyfiles $ files input, ["Decided language"])
+    let problem = probid input
+    tell ["Loading settings..."]
+    settings <- wrap $ maybe (loadSettings []) loadSettings (conf input)
+
+    user  <- getsetting Username settings
+    tell ["Found user: " ++ user]
+    token <- getsetting Token settings
+    lurl  <- getsetting LoginUrl settings
+    surl  <- getsetting SubmissionUrl settings
+
+    tell ["Deciding language..."]
+    language <- wrap $ maybe (verifyfiles $ files input) (return . fromStr) (lang input)
+    tell ["Language chosen: " ++ name language]
+    tell ["Logging into kattis..."]
+    cookies <- wrap $ login user token lurl
+    tell ["Submitting solution..."]
+    response <- wrap $ submit cookies surl problem  (files input) (name language) Nothing Nothing
+    tell [response]
+
     return ExitSuccess
 
---test :: (Ini i a) => i -> Hattis a
-test x =  Hattis $ writer (toIO $ getsetting Username x, [])
-        where toIO :: a -> IO a
-              toIO = return
+wrap x = Hattis . ExceptT . WriterT $ do
+    val <- x
+    return (val,[])

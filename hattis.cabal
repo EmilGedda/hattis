@@ -19,10 +19,11 @@ library
   exposed-modules:     Hattis,
                        Hattis.Arguments
                        Hattis.Error,
-                       Hattis.GetOpt
+                       Hattis.Network
                        Hattis.Text.Ini
                        Hattis.Text.SourceFile
   build-depends:       base >= 4.7 && < 5
+                     , utf8-string
                      , bytestring
                      , containers
                      , directory
@@ -43,6 +44,7 @@ executable hattis
   build-depends:       base
                      , hattis
                      , mtl
+                     , bytestring
                      , optparse-applicative >= 0.12 && <= 0.15
   default-language:    Haskell2010
 
