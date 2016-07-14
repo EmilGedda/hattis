@@ -2,17 +2,29 @@
 module Hattis.Network(login, submit) where
 import Control.Arrow
 import Control.Exception (try)
-import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, takeWhile)
-import qualified Data.ByteString.UTF8 as B
-import qualified Data.ByteString.Lazy.UTF8 as LB
+import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, 
+                                    takeWhile, length, span, take, any)
 import Data.Char
+import Data.List
 import Data.Maybe
 import Hattis.Error
 import Network.HTTP.Client.MultipartFormData
 import Network.HTTP.Conduit
 import Network.HTTP.Simple
-import System.FilePath
-import qualified Data.Text as T
+import Text.XML.HXT.Core
+import qualified Control.Monad as M
+import qualified Data.ByteString.Lazy.UTF8 as LB
+import qualified Data.ByteString.UTF8 as B
+
+data SubmissionProgress 
+            = Finished { time :: String } 
+            | Failed   { status:: String,
+                         errinfo :: Maybe String, 
+                         hints :: Maybe String, 
+                         compilerinfo :: Maybe String }
+            | Running  { currentcase :: Integer, 
+                         totalcases :: Integer }
+            deriving Show
 
 login 
     :: (MonadIO mio, MonadError HattisError merr) 
@@ -53,14 +65,14 @@ submit cookiejar url prob files lang main tag = liftIO $ do
                 $ setRequestPort 443
                 $ req' { cookieJar = Just cookiejar }
         let parts = map (uncurry partBS) [ ("submit", "true")
-                                       , ("submit_ctr", "2")
-                                       , ("script", "true")
-                                       , ("language", B.fromString lang)
-                                       , ("mainclass", fromMaybe ""  $ B.fromString <$> main)
-                                       , ("problem", B.fromString prob)
-                                       , ("tag", fromMaybe "" $ B.fromString <$> tag)
-                                       , ("type", "files")]
-                                       ++ map (partFile "sub_file[]")  files
+                                         , ("submit_ctr", "2")
+                                         , ("script", "true")
+                                         , ("language", B.fromString lang)
+                                         , ("mainclass", fromMaybe ""  $ B.fromString <$> main)
+                                         , ("problem", B.fromString prob)
+                                         , ("tag", fromMaybe "" $ B.fromString <$> tag)
+                                         , ("type", "files")]
+                                         ++ map (partFile "sub_file[]")  files
         boundary <- webkitBoundary
         request  <- formDataBodyWithBoundary boundary parts reqheaders
         mbresponse <- try $ httpLBS request
@@ -71,3 +83,67 @@ submit cookiejar url prob files lang main tag = liftIO $ do
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
         where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
 
+parsesubmission 
+    :: (MonadIO mio, MonadError HattisError merr)
+        => CookieJar
+        -> Integer
+        -> mio (merr SubmissionProgress)
+parsesubmission cookies id = liftIO $ do
+        req' <- parseRequest $ "https://kth.kattis.com/submissions/" ++ show id
+        let request
+                = setRequestSecure True
+                $ setRequestPort 443
+                $ req' { cookieJar = Just cookies }
+        mbresponse <- try $ httpLBS request
+        case mbresponse of
+            Left err -> return . throwError . MiscError $ show (err :: HttpException)
+            Right response -> case getResponseStatusCode response of
+                                    200 -> return <$> (parseHTML . LB.toString $ getResponseBody response)
+                                    code -> return . throwError . MiscError $ "Error! Submission page returned: " ++ show code
+        
+parseHTML :: MonadIO m => String -> m SubmissionProgress
+parseHTML html = liftIO $ do
+            let doc = readString [withParseHTML yes, withWarnings no] html 
+            status <- parseStatus doc
+            parse doc status
+            where parse d x | x == "Accepted" = parseFinished d
+                            | x == "Running"  = parseRunning  d
+                            | otherwise       = parseFailed   d x
+
+parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
+parseFinished doc = liftIO $ do
+            let runtime = hasName "td" >>> hasAttrValue "class" (isInfixOf "runtime") 
+            txt <- runX $ doc >>> deep runtime //> getText
+            return . Finished . fromMaybe "Unknown time" 
+                $ flip (++) "s" . takeWhile (isDigit `or` isPunctuation) <$> listToMaybe txt
+                where or f g x = f x || g x
+
+parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
+parseRunning doc = liftIO $ do
+            let testcases =  hasName "div" >>> hasAttrValue "class" (=="testcases")
+            uncurry Running . sumap (fromIntegral . length) . span (=="accepted")
+                        <$> runX (doc >>> deep testcases /> getAttrValue "class")
+            where sumap f = sec (+) . second f . first f
+                  sec f (a,b) = (a, f a b)
+
+parseFailed :: MonadIO m => IOStateArrow () XmlTree XmlTree -> String -> m SubmissionProgress
+parseFailed doc status = liftIO $ do
+            errinf  <- fetch "Error information"
+            hints   <- fetch "Hints about test file"
+            compinf <- fetch "Compiler output"
+            return $ Failed status errinf hints compinf 
+            where fetch txt = extract <$> runX (doc >>> deep (extrainfo txt) /> getChildren >>> getText)
+                  extrainfo txt = isElem >>> hasName "div" </ (hasName "h3" /> hasText (==txt))
+                  extract x = replace "\\n" "\n" . replace "\\t" "\t" <$> (listToMaybe $ drop 1 x)
+
+parseStatus :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m String
+parseStatus doc = liftIO $ safe <$> runX (doc >>> deep stat //> getText)
+            where stat = hasName "td" >>> hasAttrValue "class" (isInfixOf "status")
+                  safe = maybe "Unknown status" id . listToMaybe
+
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace [] _ str = str
+replace old new s@(x:xs) | take (length old) s == old 
+                            = new ++ replace old new (drop (length old) s)
+                         | otherwise = x:replace old new xs
+replace _ _ _ = []

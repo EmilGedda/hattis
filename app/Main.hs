@@ -23,7 +23,6 @@ newtype Hattis a = Hattis {
 hattisver = "v1.0.0"
 versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
 
-data Verbosity = Silent | Normal
 data Input = Input { probid :: String, files :: [String], 
                      conf :: Maybe String, force :: Bool,
                      lang :: Maybe String, mainclass :: Maybe String,
@@ -98,7 +97,8 @@ catcherr _ = return ExitSuccess
 
 run :: Input -> Hattis ()
 run input = do 
-    let problem = probid input
+    let println = unless (silent input) . liftIO . putStrLn
+
     println "Loading settings..."
     settings <- wrap $ maybe (loadSettings []) loadSettings (conf input)
 
@@ -109,12 +109,13 @@ run input = do
 
     println "Deciding language..."
     language <- wrap $ maybe (verifyfiles $ files input) (return . fromStr) (lang input)
+
     println $ "User:       " ++ user
     println $ "Language:   " ++ name language
-    println $ "Problem ID: " ++ problem
+    println $ "Problem ID: " ++ probid input
     println $ "Files:      " ++ intercalate ", " (files input)
 
-    unless (force input) $ do
+    unless (force input || silent input) $ do
             liftIO $ putStr "Submit? (y/n): " *> hFlush stdout
             line <- liftIO $ map toLower <$> getLine
             unless (line `isPrefixOf` "yes") $ throwError SubmissionDenied
@@ -122,11 +123,10 @@ run input = do
     println "Logging into kattis..."
     cookies <- wrap $ login user token lurl
     println "Submitting solution..."
-    id <- wrap $ submit cookies surl problem  (files input) (name language) Nothing Nothing
+    id <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
     println $ "Submission ID: " ++ show id
 
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
     return (val,[])
 
-println = liftIO . putStrLn 

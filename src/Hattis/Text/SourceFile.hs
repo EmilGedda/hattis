@@ -57,7 +57,7 @@ instance FileExt Language where
 fromStr :: (MonadError HattisError m) => String -> m Language
 fromStr x = case filter ((==lower) . map toLower . snd) lang of
                 [] -> throwError $ UnknownLanguage x
-                a:_ -> return $ fst a
+                (a,_):_ -> return a
             where lang  = map (id &&& name) langs
                   lower = map toLower x
 
@@ -67,14 +67,14 @@ langs = enumFrom C
 matches :: FileExt a => String -> a -> Bool
 matches = (. exts) . elem
 
-allfiles :: (MonadError HattisError m) => Files -> IO (m Files)
-allfiles x = do
+allfiles :: (MonadIO m1, MonadError HattisError m) => Files -> m1 (m Files)
+allfiles x = liftIO $ do
         full <- mapM getFullPath x
         existing <- mapM doesFileExist full
         let nonexisting = filter ((False==) . snd) $ zip x existing
-        case nonexisting of
-            [] -> return $ return full
-            l -> return . throwError . NotAFile $ map fst l
+        return $ case nonexisting of
+            [] -> return full
+            l -> throwError . NotAFile $ map fst l
 
 possiblelangs :: String -> [Language]
 possiblelangs = flip filter langs . matches

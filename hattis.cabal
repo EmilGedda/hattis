@@ -26,13 +26,12 @@ library
                      , containers
                      , directory
                      , filepath
-                     , html-conduit
                      , http-client
                      , http-conduit
                      , megaparsec 
                      , mtl
                      , optparse-applicative
-                     , text
+                     , hxt
   default-language:    Haskell2010
 
 executable hattis
@@ -42,7 +41,6 @@ executable hattis
   build-depends:       base
                      , hattis
                      , mtl
-                     , bytestring
                      , optparse-applicative >= 0.12 && <= 0.15
   default-language:    Haskell2010
 
