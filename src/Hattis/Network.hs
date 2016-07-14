@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
-module Hattis.Network(login, submit) where
+module Hattis.Network(login, submit, parsesubmission) where
 import Control.Arrow
 import Control.Exception (try)
 import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, 
@@ -17,7 +17,10 @@ import qualified Data.ByteString.Lazy.UTF8 as LB
 import qualified Data.ByteString.UTF8 as B
 
 data SubmissionProgress 
-            = Finished { time :: String } 
+            = Compiling
+            | Waiting
+            | New
+            | Finished { time :: String } 
             | Failed   { status:: String,
                          errinfo :: Maybe String, 
                          hints :: Maybe String, 
@@ -57,7 +60,7 @@ submit
      -> String
      -> Maybe String
      -> Maybe String
-     -> mio (merr Integer)
+     -> mio (merr (Integer, CookieJar))
 submit cookiejar url prob files lang main tag = liftIO $ do
         req' <- parseRequest url
         let reqheaders
@@ -79,17 +82,20 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return . filtr . LB.toString $ getResponseBody response
+                                    200  -> return . pair $ response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
         where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
+              pair  = filtr . LB.toString . getResponseBody &&& responseCookieJar
 
 parsesubmission 
     :: (MonadIO mio, MonadError HattisError merr)
-        => CookieJar
+        => String
+        -> String
+        -> CookieJar
         -> Integer
         -> mio (merr SubmissionProgress)
-parsesubmission cookies id = liftIO $ do
-        req' <- parseRequest $ "https://kth.kattis.com/submissions/" ++ show id
+parsesubmission user token cookies id = liftIO $ do
+        req' <- parseRequest $ "GET https://kth.kattis.com/submissions/" ++ show id 
         let request
                 = setRequestSecure True
                 $ setRequestPort 443
@@ -98,7 +104,7 @@ parsesubmission cookies id = liftIO $ do
         case mbresponse of
             Left err -> return . throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200 -> return <$> (parseHTML . LB.toString $ getResponseBody response)
+                                    200  -> return <$> (parseHTML . LB.toString $ getResponseBody response)
                                     code -> return . throwError . MiscError $ "Error! Submission page returned: " ++ show code
         
 parseHTML :: MonadIO m => String -> m SubmissionProgress
@@ -106,9 +112,12 @@ parseHTML html = liftIO $ do
             let doc = readString [withParseHTML yes, withWarnings no] html 
             status <- parseStatus doc
             parse doc status
-            where parse d x | x == "Accepted" = parseFinished d
-                            | x == "Running"  = parseRunning  d
-                            | otherwise       = parseFailed   d x
+            where parse d x | x == "Accepted"  = parseFinished d
+                            | x == "Running"   = parseRunning  d
+                            | x == "Waiting"   = return Waiting
+                            | x == "Compiling" = return Compiling
+                            | x == "New"       = return New
+                            | otherwise        = parseFailed d x
 
 parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseFinished doc = liftIO $ do

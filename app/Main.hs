@@ -123,8 +123,10 @@ run input = do
     println "Logging into kattis..."
     cookies <- wrap $ login user token lurl
     println "Submitting solution..."
-    id <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
+    (id,newcookies) <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
     println $ "Submission ID: " ++ show id
+    progress <- wrap $ parsesubmission user token cookies id
+    println $ show progress
 
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
