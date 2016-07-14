@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
-module Hattis.Network(login, submit, parsesubmission) where
+module Hattis.Network(login, submit, parsesubmission, SubmissionProgress(..)) where
 import Control.Arrow
 import Control.Exception (try)
 import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, 
@@ -60,7 +60,7 @@ submit
      -> String
      -> Maybe String
      -> Maybe String
-     -> mio (merr (Integer, CookieJar))
+     -> mio (merr Integer)
 submit cookiejar url prob files lang main tag = liftIO $ do
         req' <- parseRequest url
         let reqheaders
@@ -82,10 +82,9 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return . pair $ response
+                                    200  -> return . filtr . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
         where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
-              pair  = filtr . LB.toString . getResponseBody &&& responseCookieJar
 
 parsesubmission 
     :: (MonadIO mio, MonadError HattisError merr)

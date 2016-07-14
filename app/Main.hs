@@ -123,10 +123,35 @@ run input = do
     println "Logging into kattis..."
     cookies <- wrap $ login user token lurl
     println "Submitting solution..."
-    (id,newcookies) <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
+    id <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
     println $ "Submission ID: " ++ show id
-    progress <- wrap $ parsesubmission user token cookies id
-    println $ show progress
+
+    println $ "Refreshing authorization tokens..."
+    newcookies <- wrap $ login user token lurl
+
+    println $ "Fetching status..."
+    let action =  wrap $ parsesubmission user token newcookies id
+    prog <- action
+    progress prog action
+
+progress (Finished str) _ = liftIO $ putStrLn ("Kattis: CPU-time: " ++ str) *> putStrLn "Submission accepted"
+progress (Failed s e h c) _ = liftIO $ do
+    putStrLn $ "Kattis: " ++ s
+    tryprint e "Kattis: Error info"
+    tryprint h "Hints about testcase"
+    tryprint c "Compiler output"
+    where tryprint (Just x) str = liftIO $ putStrLn (str ++ ": " ++ x)
+          tryprint _ _ = liftIO $ return ()
+
+progress p f = do
+    liftIO . putStrLn $ toStr p
+    next <- f  
+    liftIO $ threadDelay 1000000
+    progress next f
+    where toStr Compiling = "Kattis: Compiling..."
+          toStr New       = "Kattis: New..."
+          toStr Waiting   = "Kattis: Waiting..."
+          toStr (Running curr tot) = "Kattis: Running testcase " ++ show curr ++ "/" ++ show tot
 
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
