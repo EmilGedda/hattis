@@ -20,11 +20,12 @@ data SubmissionProgress
             = Compiling
             | Waiting
             | New
-            | Finished { time :: String } 
+            | Finished { time :: String, progr :: SubmissionProgress } 
             | Failed   { status:: String,
                          errinfo :: Maybe String, 
                          hints :: Maybe String, 
-                         compilerinfo :: Maybe String }
+                         compilerinfo :: Maybe String,
+                         progr :: SubmissionProgress }
             | Running  { currentcase :: Integer, 
                          totalcases :: Integer }
             deriving Show
@@ -111,14 +112,20 @@ parseHTML html = liftIO $ do
             let doc = readString [withParseHTML yes, withWarnings no] html 
             status <- parseStatus doc
             parse doc status
-            where parse d x | x == "Accepted"  = parseFinished d
+            where parse d x | x == "Accepted"  = do
+                                            fin <- parseFinished d 
+                                            run <- parseRunning d
+                                            return $ fin run
                             | x == "Running"   = parseRunning  d
                             | x == "Waiting"   = return Waiting
                             | x == "Compiling" = return Compiling
                             | x == "New"       = return New
-                            | otherwise        = parseFailed d x
+                            | otherwise        = do
+                                            fail <- parseFailed d x 
+                                            last <- parseRunning d
+                                            return $ fail last
 
-parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
+parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m (SubmissionProgress -> SubmissionProgress)
 parseFinished doc = liftIO $ do
             let runtime = hasName "td" >>> hasAttrValue "class" (isInfixOf "runtime") 
             txt <- runX $ doc >>> deep runtime //> getText
@@ -134,7 +141,7 @@ parseRunning doc = liftIO $ do
             where sumap f = sec (+) . second f . first f
                   sec f (a,b) = (a, f a b)
 
-parseFailed :: MonadIO m => IOStateArrow () XmlTree XmlTree -> String -> m SubmissionProgress
+parseFailed :: MonadIO m => IOStateArrow () XmlTree XmlTree -> String -> m (SubmissionProgress -> SubmissionProgress)
 parseFailed doc status = liftIO $ do
             errinf  <- fetch "Error information"
             hints   <- fetch "Hints about test file"

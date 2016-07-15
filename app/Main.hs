@@ -11,6 +11,7 @@ import Hattis.Network
 import Hattis.Text.Ini
 import Hattis.Text.SourceFile
 import Options.Applicative
+import System.Console.ANSI
 import System.Environment
 import System.Exit
 import System.IO
@@ -26,7 +27,7 @@ versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
 data Input = Input { probid :: String, files :: [String], 
                      conf :: Maybe String, force :: Bool,
                      lang :: Maybe String, mainclass :: Maybe String,
-                     silent :: Bool } 
+                     silent :: Bool, noglyphs :: Bool, nocolor :: Bool } 
 
 cmdopts :: Parser Input
 cmdopts = Input
@@ -63,12 +64,15 @@ cmdopts = Input
         <*> switch 
                 (long "silent"
                 <> short 's'
-                <> help ("Silence all output, instead return codes are used for communication."
-                        ++ " Assuming 32 bit integer, a negative return code corresponds to a failure"
-                        ++ " before submission to kattis. A positive return code (>0) corresponds to"
-                        ++ " a test case on kattis the submission failed. A return code of 0 means"
-                        ++ " the submission was submited succesfully and passed all test cases."))
-
+                <> help ("Silence almost all output, do not print any intermediary information until "
+                         ++ "the submission has been accepted or rejected by kattis or upon other client "
+                         ++ "sided errors. This implies --force."))
+        <*> switch 
+                (long "no-glyphs"
+                <> help "Disable UTF-8 glyphs in output. Translate glyphs into ASCII characters instead.")
+        <*> switch 
+                (long "no-color"
+                <> help "Disable all coloring of the output, while keeping the amount of output.")
 main :: IO ()
 main = execParser opts >>= maybe (putStrLn versionstr) (finalize <*> run)
     where veropts = flag' Nothing (long "version" 
@@ -93,7 +97,7 @@ catcherr (Left err) = do
                 TestCaseFailed num _ _ -> ExitFailure num 
                 SubmissionDenied -> ExitSuccess
                 _ -> ExitFailure 1
-catcherr _ = return ExitSuccess
+catcherr _ = putStrLn "Submission accepted." *> return ExitSuccess
 
 run :: Input -> Hattis ()
 run input = do 
@@ -113,7 +117,7 @@ run input = do
     println $ "User:       " ++ user
     println $ "Language:   " ++ name language
     println $ "Problem ID: " ++ probid input
-    println $ "Files:      " ++ intercalate ", " (files input)
+    println $ "Files:      " ++ intercalate "\n            " (files input)
 
     unless (force input || silent input) $ do
             liftIO $ putStr "Submit? (y/n): " *> hFlush stdout
@@ -123,7 +127,13 @@ run input = do
     println "Logging into kattis..."
     cookies <- wrap $ login user token lurl
     println "Submitting solution..."
-    id <- wrap $ submit cookies surl (probid input)  (files input) (name language) Nothing Nothing
+    id <- wrap $ submit cookies 
+                        surl 
+                        (probid input)  
+                        (files input) 
+                        (name language) 
+                        (mainclass input) 
+                        Nothing
     println $ "Submission ID: " ++ show id
 
     println $ "Refreshing authorization tokens..."
@@ -131,28 +141,58 @@ run input = do
 
     println $ "Fetching status..."
     let action =  wrap $ parsesubmission user token newcookies id
+    let d = display (nocolor input) (noglyphs input)
     prog <- action
-    progress prog action
+    progress (silent input) prog action New d
 
-progress (Finished str) _ = liftIO $ putStrLn ("Kattis: CPU-time: " ++ str) *> putStrLn "Submission accepted"
-progress (Failed s e h c) _ = liftIO $ do
-    putStrLn $ "Kattis: " ++ s
-    tryprint e "Kattis: Error info"
-    tryprint h "Hints about testcase"
-    tryprint c "Compiler output"
+-- TODO: Abstract and clean the shit out of this, and implement a correct Show for SubmissionProgress
+progress silent (Finished str r) _ _ disp = unless silent . liftIO $ disp False r
+                                                                    *> putStrLn "" 
+                                                                    *> putStrLn ("CPU time: " ++ str)
+progress silent (Failed s e h c r@(Running passed tot)) _ _ disp = do
+    unless silent . liftIO $ disp True r
+    unless silent . liftIO $ putStrLn ""
+    unless silent . liftIO . putStrLn $ s ++ " on test case " 
+                                          ++ show (passed + 1) 
+                                          ++ " of " 
+                                          ++ show tot ++ "!"
+    unless silent $ tryprint e "Error info"
+    unless silent $ tryprint h "Hints about testcase"
+    unless silent $ tryprint c "Compiler output"
+    throwError $ MiscError "Submission rejected."
     where tryprint (Just x) str = liftIO $ putStrLn (str ++ ": " ++ x)
           tryprint _ _ = liftIO $ return ()
 
-progress p f = do
-    liftIO . putStrLn $ toStr p
+progress silent p f prev disp = do
+    unless silent $ liftIO (toStr p prev)
     next <- f  
-    liftIO $ threadDelay 1000000
-    progress next f
-    where toStr Compiling = "Kattis: Compiling..."
-          toStr New       = "Kattis: New..."
-          toStr Waiting   = "Kattis: Waiting..."
-          toStr (Running curr tot) = "Kattis: Running testcase " ++ show curr ++ "/" ++ show tot
+    liftIO $ threadDelay 500000
+    progress silent next f p disp
+    where 
+          toStr Compiling Compiling  = return ()
+          toStr Compiling _          = putStrLn "Compiling..."
+          toStr Waiting Waiting      = return ()
+          toStr Waiting _            = putStrLn "Waiting..."
+          toStr r@(Running _ _) _ = disp False r
+          toStr _ _ = return ()
 
+display nocolor noglyphs hasfailed (Running passed tot) = do
+    putStr "\r[ "
+    let pass = if noglyphs then 'P' else '✓'
+    let fail = 'X'
+    let unkw = '-'
+    unless nocolor . colorme Green $ putStr (replicate (fromIntegral passed) pass)
+
+    when (passed /= tot) $ do
+        if hasfailed 
+        then unless nocolor . colorme Red $ putChar fail
+        else putChar unkw
+
+    putStr $ replicate (fromIntegral (tot - passed - 1)) unkw
+    putStr $ " | " ++ show (passed + 1) ++ "/" ++ show tot ++ " ]"
+    hFlush stdout
+    where colorme c f = setSGR [SetColor Foreground Dull c] *> f *> setSGR [Reset]
+                
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
     return (val,[])
