@@ -1,5 +1,5 @@
 name:                hattis
-version:             0.1.0.0
+version:             1.0.0.0
 synopsis:            A cli-interface to the online coding judge kattis.com
 description:         Please see README.md
 homepage:            http://github.com/emilgedda/hattis#readme
@@ -20,18 +20,18 @@ library
                      , Hattis.Network
                      , Hattis.Text.Ini
                      , Hattis.Text.SourceFile
-  build-depends:       base >= 4.7 && < 5
-                     , utf8-string
-                     , bytestring
-                     , containers
-                     , directory
-                     , filepath
-                     , http-client
-                     , http-conduit
-                     , megaparsec 
-                     , mtl
-                     , optparse-applicative
-                     , hxt
+  build-depends:       base                 >= 4.7  && < 5
+                     , utf8-string          >= 1.0  && < 1.1
+                     , bytestring           >= 0.10 && < 0.11
+                     , containers           >= 0.5  && < 0.6
+                     , directory            >= 1.2  && < 1.3
+                     , filepath             >= 1.4  && < 1.5
+                     , http-client          >= 0.4  && < 0.6
+                     , http-conduit         >= 2.1  && < 2.3
+                     , megaparsec           >= 4.4  && < 5.0
+                     , mtl                  >= 2.2  && < 2.3
+                     , optparse-applicative >= 0.12 && < 0.13
+                     , hxt                  >= 9.3  && < 9.4
   default-language:    Haskell2010
 
 executable hattis
