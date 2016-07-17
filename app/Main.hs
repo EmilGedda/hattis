@@ -22,7 +22,7 @@ newtype Hattis a = Hattis {
                 MonadError HattisError, MonadWriter [String])
 
 hattisver = "v1.0.0"
-versionstr = "hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
+versionstr = "Hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
 
 data Input = Input { probid :: String, files :: [String], 
                      conf :: Maybe String, force :: Bool,
@@ -136,12 +136,12 @@ run input = do
                         Nothing
     println $ "Submission ID: " ++ show id
 
-    println $ "Refreshing authorization tokens..."
+    println "Refreshing authorization tokens..."
     newcookies <- wrap $ login user token lurl
 
-    println $ "Fetching status..."
+    println "Fetching status..."
     let action =  wrap $ parsesubmission user token newcookies id
-    let d = display (nocolor input) (noglyphs input)
+    let d = (unless (silent input) .) . display (nocolor input) (noglyphs input) 
     prog <- action
     progress (silent input) prog action New d
 
@@ -181,17 +181,21 @@ display nocolor noglyphs hasfailed (Running passed tot) = do
     let pass = if noglyphs then 'P' else '✓'
     let fail = 'X'
     let unkw = '-'
-    unless nocolor . colorme Green $ putStr (replicate (fromIntegral passed) pass)
 
-    when (passed /= tot) $ do
+    condapply nocolor (colorme Green) . putStr $ replicate (fromIntegral passed) pass
+
+    when (passed /= tot) $ 
         if hasfailed 
-        then unless nocolor . colorme Red $ putChar fail
+        then condapply nocolor (colorme Red) $ putChar fail
         else putChar unkw
 
     putStr $ replicate (fromIntegral (tot - passed - 1)) unkw
     putStr $ " | " ++ show (passed + 1) ++ "/" ++ show tot ++ " ]"
     hFlush stdout
     where colorme c f = setSGR [SetColor Foreground Dull c] *> f *> setSGR [Reset]
+          condapply True  f = f
+          condapply False _ = id
+          
                 
 wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
