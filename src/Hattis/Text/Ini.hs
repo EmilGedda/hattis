@@ -6,7 +6,7 @@ import Control.Monad (void)
 import Data.Bifunctor 
 import qualified Data.Map.Strict as M
 import Hattis.Error
-import Text.Megaparsec
+import Text.Megaparsec hiding (Token)
 import Text.Megaparsec.String
 import System.Directory
 import System.Environment
