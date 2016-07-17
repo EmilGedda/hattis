@@ -146,7 +146,7 @@ And now you are done! You can now use hattis.
 $ hattis --help
 ```
 
-### Using cabal install
+### Using cabal-install
 
 #### Prerequisites
 
@@ -154,10 +154,33 @@ $ hattis --help
 * GHC (>=7.10) 
 * cabal-install
 
-Haven't gotten around to write this yet, but Hattis does not need any fancy
-compilation steps and could be built and installed as every other cabal
-package.
+First we need to download the source for Hattis, using either git or the zip distributed by GitHub.
+
+```
+$ git clone https://github.com/EmilGedda/hattis
+$ cd hattis
+```
+
+After that, we need to initialize a new cabal sandbox, and the dependencies in that sandbox.
+The sandbox prevents breakage of existing packages.
+
+```
+$ cabal sandbox init 
+$ cabal install --only-dependencies
+```
+
+
+After that, we build Hattis.
+
+```
+$ cabal configure
+$ cabal build 
+$ cabal copy
+```
+
+Hattis will now be found in `./.cabal-sandbox/bin/` and may be copied to your favorite directory on your `$PATH`.
 
 ### License
+
 Hattis is licensed under the BSD 3 license, see LICENSE.
 Copyright Emil Gedda, 2016.
