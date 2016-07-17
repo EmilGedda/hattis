@@ -42,7 +42,7 @@ problem with this.
 
 Hattis makes use of token based authentication to be able to provide a password-less login to kattis.
 This means that in order to use Hattis you need to download your own custom configuration file called _kattisrc_.
-A _kattisrc_ is a **personal** configuration file, and can be downloaded from [kattis](https://link.to.kattisrc.com/),
+A _kattisrc_ is a **personal** configuration file, and can be downloaded from [kattis](https://kth.kattis.com/download/kattisrc),
 you need to be logged in into kattis to download the file.
 By default _kattisrc_ contains all the information needed by Hattis to fully function.
 

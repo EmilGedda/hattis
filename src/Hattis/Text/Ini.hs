@@ -41,8 +41,8 @@ exist x = liftIO $ do
         if e then return <$> readFile x
         else return $ throwError SettingsNotFound
 
-location :: IO FilePath
-location = liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
+location :: MonadIO m => m FilePath
+location = liftIO $ liftM3 maybe defval fun (lookupEnv "XDG_CONFIG_HOME")
             where defval = (</> ending ".config") <$> getHomeDirectory
                   fun    = return ending
                   ending = (</> "hattis" </> "kattisrc")

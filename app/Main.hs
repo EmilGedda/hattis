@@ -166,7 +166,7 @@ progress silent (Failed s e h c r@(Running passed tot)) _ _ disp = do
 progress silent p f prev disp = do
     unless silent $ liftIO (toStr p prev)
     next <- f  
-    liftIO $ threadDelay 500000
+    liftIO $ threadDelay 750000
     progress silent next f p disp
     where 
           toStr Compiling Compiling  = return ()
@@ -190,11 +190,11 @@ display nocolor noglyphs hasfailed (Running passed tot) = do
         else putChar unkw
 
     putStr $ replicate (fromIntegral (tot - passed - 1)) unkw
-    putStr $ " | " ++ show (passed + 1) ++ "/" ++ show tot ++ " ]"
+    putStr $ " | " ++ show (min (passed + 1) tot) ++ "/" ++ show tot ++ " ]"
     hFlush stdout
     where colorme c f = setSGR [SetColor Foreground Dull c] *> f *> setSGR [Reset]
-          condapply True  f = f
-          condapply False _ = id
+          condapply False f = f
+          condapply True _ = id
           
                 
 wrap x = Hattis . ExceptT . WriterT $ do
