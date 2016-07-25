@@ -9,6 +9,7 @@ import Data.Maybe
 import Hattis.Error
 import Hattis.Network
 import Hattis.Text.Ini
+import Hattis.Text.Make
 import Hattis.Text.SourceFile
 import Options.Applicative
 import System.Console.ANSI
@@ -27,7 +28,8 @@ versionstr = "Hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
 data Input = Input { probid :: String, files :: [String], 
                      conf :: Maybe String, force :: Bool,
                      lang :: Maybe String, mainclass :: Maybe String,
-                     silent :: Bool, noglyphs :: Bool, nocolor :: Bool } 
+                     silent :: Bool, noglyphs :: Bool, nocolor :: Bool,
+                     make :: Bool} 
 
 cmdopts :: Parser Input
 cmdopts = Input
@@ -73,6 +75,11 @@ cmdopts = Input
         <*> switch 
                 (long "no-color"
                 <> help "Disable all coloring of the output, while keeping the amount of output.")
+        <*> switch
+                (long "make"
+                <> hidden
+                <> help ("Generate a Makefile and save it in the current directory. "
+                        ++ "Additional flags provided alongside --make will be stored in the Makefile."))
 main :: IO ()
 main = execParser opts >>= maybe (putStrLn versionstr) (finalize <*> run)
     where veropts = flag' Nothing (long "version" 
@@ -97,12 +104,30 @@ catcherr (Left err) = do
                 TestCaseFailed num _ _ -> ExitFailure num 
                 SubmissionDenied -> ExitSuccess
                 _ -> ExitFailure 1
-catcherr _ = putStrLn "Submission accepted." *> return ExitSuccess
+catcherr _ = return ExitSuccess
+
+
+genmake input = do
+    path <- liftIO $ getExecutablePath 
+    let opts = [ boolopt  "--force" . force
+               , boolopt  "--silent" . silent
+               , boolopt  "--no-glyphs" . noglyphs
+               , boolopt  "--no-color" . nocolor
+               , maybeopt "--conf" . conf 
+               , maybeopt "--lang" . lang 
+               , maybeopt "--main" . mainclass]
+    let str = makefile hattisver path (probid input) (files input) $ map ($ input) opts
+    liftIO $ writeFile "./Makefile" str
+    liftIO $ putStrLn "Makefile generated."
+    return ()
 
 run :: Input -> Hattis ()
-run input = do 
-    let println = unless (silent input) . liftIO . putStrLn
+run input = 
+    if (make input) 
+    then genmake input 
+    else do 
 
+    let println = unless (silent input) . liftIO . putStrLn
     println "Loading settings..."
     settings <- wrap $ maybe (loadSettings []) loadSettings (conf input)
 
@@ -144,6 +169,8 @@ run input = do
     let d = (unless (silent input) .) . display (nocolor input) (noglyphs input) 
     prog <- action
     progress (silent input) prog action New d
+
+    println "Submission accepted."
 
 -- TODO: Abstract and clean the shit out of this, and implement a correct Show for SubmissionProgress
 progress silent (Finished str r) _ _ disp = unless silent . liftIO $ disp False r
