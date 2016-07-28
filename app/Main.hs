@@ -108,7 +108,6 @@ catcherr _ = return ExitSuccess
 
 
 genmake input = do
-    path <- liftIO $ getExecutablePath 
     let opts = [ boolopt  "--force" . force
                , boolopt  "--silent" . silent
                , boolopt  "--no-glyphs" . noglyphs
@@ -116,10 +115,9 @@ genmake input = do
                , maybeopt "--conf" . conf 
                , maybeopt "--lang" . lang 
                , maybeopt "--main" . mainclass]
-    let str = makefile hattisver path (probid input) (files input) $ map ($ input) opts
+    let str = makefile hattisver (probid input) (files input) $ map ($ input) opts
     liftIO $ writeFile "./Makefile" str
     liftIO $ putStrLn "Makefile generated."
-    return ()
 
 run :: Input -> Hattis ()
 run input = 
