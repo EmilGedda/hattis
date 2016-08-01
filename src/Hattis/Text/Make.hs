@@ -94,7 +94,7 @@ makefile hver id files opts = showMake $ do
     files  <- "files"  .=. intercalate " " files
     var    <- "opts"   .=. ""
     foldr ($ var) (return ()) opts 
-    rule "default" $ "hattis" .+. var .+. id .+. files
+    rule "default" $ "hattis" .+. id .+. files .+. var
     make
 
 showMake (Free (Var str lit n)) = 
