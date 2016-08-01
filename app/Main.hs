@@ -115,7 +115,10 @@ genmake input = do
                , maybeopt "--conf" . conf 
                , maybeopt "--lang" . lang 
                , maybeopt "--main" . mainclass]
-    let str = makefile hattisver (probid input) (files input) $ map ($ input) opts
+    let str = makefile hattisver 
+                       (probid input) 
+                       (map show $ files input) -- quote files
+                       $ map ($ input) opts
     liftIO $ writeFile "./Makefile" str
     liftIO $ putStrLn "Makefile generated."
 
