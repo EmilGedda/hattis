@@ -19,6 +19,7 @@ data HattisError
     | SubmissionFailed Int
     | SubmissionDenied
     | NoSubmissionTokens Integer
+    | InvalidProblemId String
 
 instance Show HattisError where
     show (LoginFailed code msg) = "Unable to login! The server responded with: " ++ show code ++ " " ++ msg
@@ -36,3 +37,4 @@ instance Show HattisError where
     show (TestCaseFailed num err desc) = "Submission failed at test case: " ++ show num ++ "\nError by kattis:\n" ++ err ++ maybe "" ("Test case description:\n"++) desc
     show SubmissionDenied = "Submission declined."
     show (NoSubmissionTokens s) = "You are out of submission tokens.\nYour next token will regenerate in " ++ show s ++ " seconds."
+    show (InvalidProblemId id) = "Problem '" ++ id ++ "' not found."

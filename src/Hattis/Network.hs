@@ -16,7 +16,6 @@ import qualified Control.Monad as M
 import qualified Data.ByteString.Lazy.UTF8 as LB
 import qualified Data.ByteString.UTF8 as B
 
-import qualified Debug.Trace as Debug
 data SubmissionProgress 
             = Compiling
             | Waiting
@@ -51,7 +50,7 @@ login user token url = liftIO $ do
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of 
                                     200  -> return $ responseCookieJar response
-                                    code -> throwError $ LoginFailed code "nomsg" -- TODO: fix msg
+                                    code -> throwError $ LoginFailed code "Unalble to login" -- TODO: fix msg
 
 submit
   :: (MonadIO mio, MonadError HattisError merr)
@@ -86,10 +85,12 @@ submit cookiejar url prob files lang main tag = liftIO $ do
             Right response -> case getResponseStatusCode response of
                                     200  -> checktokens . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
-        where checktokens body | isInfixOf outstr body = throwError . NoSubmissionTokens $ filtr body
+        where checktokens body | isInfixOf notokens body = throwError . NoSubmissionTokens $ filtr body
+                               | isInfixOf notfound body = throwError . InvalidProblemId $ prob
                                | otherwise = return $ filtr body
               filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
-              outstr = "You are out of submission tokens"
+              notokens = "You are out of submission tokens"
+              notfound = "Problem not found" 
 
 parsesubmission 
     :: (MonadIO mio, MonadError HattisError merr)
