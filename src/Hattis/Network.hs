@@ -95,7 +95,7 @@ parsesubmission
         -> Integer
         -> mio (merr SubmissionProgress)
 parsesubmission user token cookies id = liftIO $ do
-        req' <- parseRequest $ "GET https://kth.kattis.com/submissions/" ++ show id 
+        req' <- parseRequest $ "https://kth.kattis.com/submissions/" ++ show id 
         let request
                 = setRequestSecure True
                 $ setRequestPort 443
@@ -112,18 +112,12 @@ parseHTML html = liftIO $ do
             let doc = readString [withParseHTML yes, withWarnings no] html 
             status <- parseStatus doc
             parse doc status
-            where parse d x | x == "Accepted"  = do
-                                            fin <- parseFinished d 
-                                            run <- parseRunning d
-                                            return $ fin run
+            where parse d x | x == "Accepted"  = parseFinished d <*> parseRunning d
                             | x == "Running"   = parseRunning  d
                             | x == "Waiting"   = return Waiting
                             | x == "Compiling" = return Compiling
                             | x == "New"       = return New
-                            | otherwise        = do
-                                            fail <- parseFailed d x 
-                                            last <- parseRunning d
-                                            return $ fail last
+                            | otherwise        = parseFailed d x <*> parseRunning d
 
 parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m (SubmissionProgress -> SubmissionProgress)
 parseFinished doc = liftIO $ do
@@ -131,7 +125,7 @@ parseFinished doc = liftIO $ do
             txt <- runX $ doc >>> deep runtime //> getText
             return . Finished . fromMaybe "Unknown time" 
                 $ flip (++) "s" . takeWhile (isDigit `or` isPunctuation) <$> listToMaybe txt
-                where or f g x = f x || g x
+                where f `or` g = (||) <$> f <*> g
 
 parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseRunning doc = liftIO $ do
@@ -154,7 +148,7 @@ parseFailed doc status = liftIO $ do
 parseStatus :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m String
 parseStatus doc = liftIO $ safe <$> runX (doc >>> deep stat //> getText)
             where stat = hasName "td" >>> hasAttrValue "class" (isInfixOf "status")
-                  safe = maybe "Unknown status" id . listToMaybe
+                  safe = fromMaybe "Unknown status" . listToMaybe
 
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace [] _ str = str
