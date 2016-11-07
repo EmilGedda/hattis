@@ -174,8 +174,9 @@ run input =
     println "Submission accepted."
 
 -- TODO: Abstract and clean the shit out of this, and implement a correct Show for SubmissionProgress
-progress silent (Finished str r) _ _ disp = unless silent . liftIO $ disp False r
+progress silent (Finished score str r) _ _ disp = unless silent . liftIO $ disp False r
                                                                     *> putStrLn "" 
+                                                                    *> tryprint score "Score"
                                                                     *> putStrLn ("CPU time: " ++ str)
 progress silent (Failed s e h c r@(Running passed tot)) _ _ disp = do
     unless silent . liftIO $ disp True r
@@ -188,8 +189,7 @@ progress silent (Failed s e h c r@(Running passed tot)) _ _ disp = do
     unless silent $ tryprint h "Hints about testcase"
     unless silent $ tryprint c "Compiler output"
     throwError $ MiscError "Submission rejected."
-    where tryprint (Just x) str = liftIO $ putStrLn (str ++ ": " ++ x)
-          tryprint _ _ = liftIO $ return ()
+
 
 progress silent p f prev disp = do
     unless silent $ liftIO (toStr p prev)
@@ -203,6 +203,7 @@ progress silent p f prev disp = do
           toStr Waiting _            = putStrLn "Waiting..."
           toStr r@(Running _ _) _ = disp False r
           toStr _ _ = return ()
+
 
 display nocolor noglyphs hasfailed (Running passed tot) = do
     putStr "\r[ "
@@ -229,3 +230,5 @@ wrap x = Hattis . ExceptT . WriterT $ do
     val <- x
     return (val,[])
 
+tryprint (Just x) str = liftIO $ putStrLn (str ++ ": " ++ x)
+tryprint _ _ = liftIO $ return ()

@@ -20,7 +20,9 @@ data SubmissionProgress
             = Compiling
             | Waiting
             | New
-            | Finished { time :: String, progr :: SubmissionProgress } 
+            | Finished { score :: Maybe String, -- Double?
+                         time :: String,
+                         progr :: SubmissionProgress}
             | Failed   { status:: String,
                          errinfo :: Maybe String, 
                          hints :: Maybe String, 
@@ -50,7 +52,7 @@ login user token url = liftIO $ do
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of 
                                     200  -> return $ responseCookieJar response
-                                    code -> throwError $ LoginFailed code "Unalble to login" -- TODO: fix msg
+                                    code -> throwError $ LoginFailed code "Unable to login" -- TODO: fix msg
 
 submit
   :: (MonadIO mio, MonadError HattisError merr)
@@ -117,20 +119,24 @@ parseHTML html = liftIO $ do
             let doc = readString [withParseHTML yes, withWarnings no] html 
             status <- parseStatus doc
             parse doc status
-            where parse d x | x == "Accepted"  = parseFinished d <*> parseRunning d
-                            | x == "Running"   = parseRunning  d
-                            | x == "Waiting"   = return Waiting
-                            | x == "Compiling" = return Compiling
-                            | x == "New"       = return New
-                            | otherwise        = parseFailed d x <*> parseRunning d
+            where parse d x | isPrefixOf "Accepted" x = parseFinished d <*> parseRunning d
+                            | x == "Running"          = parseRunning  d
+                            | x == "Waiting"          = return Waiting
+                            | x == "Compiling"        = return Compiling
+                            | x == "New"              = return New
+                            | otherwise               = parseFailed d x <*> parseRunning d
 
 parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m (SubmissionProgress -> SubmissionProgress)
 parseFinished doc = liftIO $ do
             let runtime = hasName "td" >>> hasAttrValue "class" (isInfixOf "runtime") 
             txt <- runX $ doc >>> deep runtime //> getText
-            return . Finished . fromMaybe "Unknown time" 
+            status <- parseStatus doc
+            return . Finished (findscore status) . fromMaybe "Unknown time"
                 $ flip (++) "s" . takeWhile (isDigit `or` isPunctuation) <$> listToMaybe txt
                 where f `or` g = (||) <$> f <*> g
+                      findscore = nonempty . takeWhile isDigit . dropWhile (not . isDigit)
+                      nonempty [] = Nothing
+                      nonempty x = Just x
 
 parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseRunning doc = liftIO $ do
