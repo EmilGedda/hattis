@@ -2,7 +2,7 @@
 module Hattis.Network(login, submit, parsesubmission, SubmissionProgress(..)) where
 import Control.Arrow
 import Control.Exception (try)
-import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, 
+import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, isPrefixOf,
                                     takeWhile, length, span, take, any)
 import Data.Char
 import Data.List
@@ -16,6 +16,7 @@ import qualified Control.Monad as M
 import qualified Data.ByteString.Lazy.UTF8 as LB
 import qualified Data.ByteString.UTF8 as B
 
+import qualified Debug.Trace as Debug
 data SubmissionProgress 
             = Compiling
             | Waiting
@@ -83,9 +84,12 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return . filtr . LB.toString $ getResponseBody response
+                                    200  -> checktokens . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
-        where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
+        where checktokens body | isInfixOf outstr body = throwError . NoSubmissionTokens $ filtr body
+                               | otherwise = return $ filtr body
+              filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
+              outstr = "You are out of submission tokens"
 
 parsesubmission 
     :: (MonadIO mio, MonadError HattisError merr)
