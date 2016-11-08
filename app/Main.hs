@@ -114,7 +114,7 @@ genmake input = do
                , boolopt  "--no-glyphs" . noglyphs
                , boolopt  "--no-color" . nocolor
                , maybeopt "--conf" . conf
-               , maybeopt "--lang" . lang
+               , maybeopt "--language" . lang
                , maybeopt "--main" . mainclass]
     let str = makefile hattisver
                        (probid input)
