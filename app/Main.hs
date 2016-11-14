@@ -120,8 +120,7 @@ genmake input = do
                        (probid input)
                        (map show $ files input) -- quote files
                        $ map ($ input) opts
-    liftIO $ writeFile "./Makefile" str
-    liftIO $ putStrLn "Makefile generated."
+    liftIO $ putStr str
 
 run :: Input -> Hattis ()
 run input =
