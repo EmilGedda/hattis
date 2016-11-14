@@ -2,7 +2,7 @@
 module Hattis.Network(login, submit, parsesubmission, SubmissionProgress(..)) where
 import Control.Arrow
 import Control.Exception (try)
-import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, 
+import Data.ByteString.Lazy hiding (putStrLn, map, dropWhile, drop, isPrefixOf,
                                     takeWhile, length, span, take, any)
 import Data.Char
 import Data.List
@@ -15,12 +15,15 @@ import Text.XML.HXT.Core
 import qualified Control.Monad as M
 import qualified Data.ByteString.Lazy.UTF8 as LB
 import qualified Data.ByteString.UTF8 as B
+import qualified Data.Text as T
 
 data SubmissionProgress 
             = Compiling
             | Waiting
             | New
-            | Finished { time :: String, progr :: SubmissionProgress } 
+            | Finished { score :: Maybe String, -- Double?
+                         time :: String,
+                         progr :: SubmissionProgress}
             | Failed   { status:: String,
                          errinfo :: Maybe String, 
                          hints :: Maybe String, 
@@ -50,7 +53,7 @@ login user token url = liftIO $ do
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of 
                                     200  -> return $ responseCookieJar response
-                                    code -> throwError $ LoginFailed code "nomsg" -- TODO: fix msg
+                                    code -> throwError $ LoginFailed code "Unable to login" -- TODO: fix msg
 
 submit
   :: (MonadIO mio, MonadError HattisError merr)
@@ -83,9 +86,14 @@ submit cookiejar url prob files lang main tag = liftIO $ do
         return $ case mbresponse of
             Left err       -> throwError . MiscError $ show (err :: HttpException)
             Right response -> case getResponseStatusCode response of
-                                    200  -> return . filtr . LB.toString $ getResponseBody response
+                                    200  -> checktokens . LB.toString $ getResponseBody response
                                     code -> throwError $ SubmissionFailed code -- TODO: fix msg
-        where filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
+        where checktokens body | isInfixOf notokens body = throwError . NoSubmissionTokens $ filtr body
+                               | isInfixOf notfound body = throwError . InvalidProblemId $ prob
+                               | otherwise = return $ filtr body
+              filtr = read . takeWhile isDigit . dropWhile (not . isDigit)
+              notokens = "You are out of submission tokens"
+              notfound = "Problem not found" 
 
 parsesubmission 
     :: (MonadIO mio, MonadError HattisError merr)
@@ -95,7 +103,7 @@ parsesubmission
         -> Integer
         -> mio (merr SubmissionProgress)
 parsesubmission user token cookies id = liftIO $ do
-        req' <- parseRequest $ "GET https://kth.kattis.com/submissions/" ++ show id 
+        req' <- parseRequest $ "https://kth.kattis.com/submissions/" ++ show id 
         let request
                 = setRequestSecure True
                 $ setRequestPort 443
@@ -112,26 +120,24 @@ parseHTML html = liftIO $ do
             let doc = readString [withParseHTML yes, withWarnings no] html 
             status <- parseStatus doc
             parse doc status
-            where parse d x | x == "Accepted"  = do
-                                            fin <- parseFinished d 
-                                            run <- parseRunning d
-                                            return $ fin run
-                            | x == "Running"   = parseRunning  d
-                            | x == "Waiting"   = return Waiting
-                            | x == "Compiling" = return Compiling
-                            | x == "New"       = return New
-                            | otherwise        = do
-                                            fail <- parseFailed d x 
-                                            last <- parseRunning d
-                                            return $ fail last
+            where parse d x | isPrefixOf "Accepted" x = parseFinished d <*> parseRunning d
+                            | x == "Running"          = parseRunning  d
+                            | x == "Waiting"          = return Waiting
+                            | x == "Compiling"        = return Compiling
+                            | x == "New"              = return New
+                            | otherwise               = parseFailed d x <*> parseRunning d
 
 parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m (SubmissionProgress -> SubmissionProgress)
 parseFinished doc = liftIO $ do
             let runtime = hasName "td" >>> hasAttrValue "class" (isInfixOf "runtime") 
             txt <- runX $ doc >>> deep runtime //> getText
-            return . Finished . fromMaybe "Unknown time" 
+            status <- parseStatus doc
+            return . Finished (findscore status) . fromMaybe "Unknown time"
                 $ flip (++) "s" . takeWhile (isDigit `or` isPunctuation) <$> listToMaybe txt
-                where or f g x = f x || g x
+                where f `or` g = (||) <$> f <*> g
+                      findscore = nonempty . takeWhile isDigit . dropWhile (not . isDigit)
+                      nonempty [] = Nothing
+                      nonempty x = Just x
 
 parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseRunning doc = liftIO $ do
@@ -149,12 +155,13 @@ parseFailed doc status = liftIO $ do
             return $ Failed status errinf hints compinf 
             where fetch txt = extract <$> runX (doc >>> deep (extrainfo txt) /> getChildren >>> getText)
                   extrainfo txt = isElem >>> hasName "div" </ (hasName "h3" /> hasText (==txt))
-                  extract x = replace "\\n" "\n" . replace "\\t" "\t" <$> (listToMaybe $ drop 1 x)
+                  extract x = trim . replace "\\n" "\n" . replace "\\t" "\t" <$> (listToMaybe $ drop 1 x)
+                  trim = T.unpack . T.strip . T.pack
 
 parseStatus :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m String
 parseStatus doc = liftIO $ safe <$> runX (doc >>> deep stat //> getText)
             where stat = hasName "td" >>> hasAttrValue "class" (isInfixOf "status")
-                  safe = maybe "Unknown status" id . listToMaybe
+                  safe = fromMaybe "Unknown status" . listToMaybe
 
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace [] _ str = str
