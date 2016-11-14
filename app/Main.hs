@@ -23,8 +23,8 @@ newtype Hattis a = Hattis {
     } deriving (Monad, Applicative, Functor, MonadIO,
                 MonadError HattisError, MonadWriter [String])
 
-hattisver = "v1.0.0"
-versionstr = "Hattis " ++ hattisver ++"\nCopyright (C) 2016 Emil Gedda"
+hattisver = "v1.1.0"
+versionstr = "Hattis " ++ hattisver ++"\nCopyright (C) 2015-2016 Emil Gedda"
 
 data Input = Input { probid :: String, files :: [String],
                      conf :: Maybe String, force :: Bool,
@@ -213,7 +213,7 @@ progress silent p f prev disp = do
 display nocolor noglyphs hasfailed (Running passed tot) = do
     putStr "\r[ "
     let pass = if noglyphs then 'P' else '✓'
-    let fail = 'X'
+    let fail = if noglyphs then 'X' else '✗'
     let unkw = '-'
 
     condapply nocolor (colorme Green) . putStr $ replicate (fromIntegral passed) pass

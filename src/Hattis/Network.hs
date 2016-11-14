@@ -15,6 +15,7 @@ import Text.XML.HXT.Core
 import qualified Control.Monad as M
 import qualified Data.ByteString.Lazy.UTF8 as LB
 import qualified Data.ByteString.UTF8 as B
+import qualified Data.Text as T
 
 data SubmissionProgress 
             = Compiling
@@ -154,7 +155,8 @@ parseFailed doc status = liftIO $ do
             return $ Failed status errinf hints compinf 
             where fetch txt = extract <$> runX (doc >>> deep (extrainfo txt) /> getChildren >>> getText)
                   extrainfo txt = isElem >>> hasName "div" </ (hasName "h3" /> hasText (==txt))
-                  extract x = replace "\\n" "\n" . replace "\\t" "\t" <$> (listToMaybe $ drop 1 x)
+                  extract x = trim . replace "\\n" "\n" . replace "\\t" "\t" <$> (listToMaybe $ drop 1 x)
+                  trim = T.unpack . T.strip . T.pack
 
 parseStatus :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m String
 parseStatus doc = liftIO $ safe <$> runX (doc >>> deep stat //> getText)

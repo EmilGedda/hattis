@@ -1,61 +1,65 @@
-name:                hattis
-version:             1.0.0.0
-synopsis:            A cli-interface to the online coding judge kattis.com
-description:         Please see README.md
-homepage:            http://github.com/emilgedda/hattis#readme
-license:             Apache-2.0
-license-file:        LICENSE
-author:              Emil Gedda
-maintainer:          emil.gedda@emilgedda.se
-copyright:           2015 Emil Gedda
-category:            Network
-build-type:          Simple
--- extra-source-files:
-cabal-version:       >=1.10
-
-library
-  hs-source-dirs:      src,
-                       src/Hattis
-  exposed-modules:     Hattis.Error
-                     , Hattis.Network
-                     , Hattis.Text.Ini
-                     , Hattis.Text.Make
-                     , Hattis.Text.SourceFile
-  build-depends:       base                 >= 4.7  && < 5
-                     , utf8-string          >= 1.0  && < 1.1
-                     , bytestring           >= 0.10 && < 0.11
-                     , containers           >= 0.5  && < 0.6
-                     , directory            >= 1.2  && < 1.3
-                     , filepath             >= 1.4  && < 1.5
-                     , http-client          >= 0.4  && < 0.6
-                     , http-conduit         >= 2.1  && < 2.3
-                     , megaparsec           >= 4.4  && < 5.0
-                     , mtl                  >= 2.2  && < 2.3
-                     , optparse-applicative >= 0.12 && < 0.13
-                     , hxt                  >= 9.3  && < 9.4
-                     , free 
-  default-language:    Haskell2010
-
-executable hattis
-  hs-source-dirs:      app
-  main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -O2
-  build-depends:       base
-                     , hattis
-                     , mtl
-                     , ansi-terminal
-                     , optparse-applicative >= 0.12 && <= 0.15
-  default-language:    Haskell2010
-
-test-suite hattis-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  build-depends:       base
-                     , hattis
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
+name: hattis
+version: 1.0.0.0
+cabal-version: >=1.10
+build-type: Simple
+license: BSD-3
+license-file: LICENSE
+copyright: 2015-2016 Emil Gedda
+maintainer: emil.gedda@emilgedda.se
+homepage: http://github.com/emilgedda/hattis#readme
+synopsis: A cli-interface to the online coding judge kattis.com
+description:
+    Please see README.md
+category: Network
+author: Emil Gedda
 
 source-repository head
-  type:     git
-  location: https://github.com/emilgedda/hattis
+    type: git
+    location: https://github.com/emilgedda/hattis
+
+library
+    exposed-modules:
+        Hattis.Error
+        Hattis.Network
+        Hattis.Text.Ini
+        Hattis.Text.Make
+        Hattis.Text.SourceFile
+    build-depends:
+        base >=4.9.0.0 && <4.10,
+        utf8-string >=1.0.1.1 && <1.1,
+        bytestring >=0.10.8.1 && <0.11,
+        containers >=0.5.7.1 && <0.6,
+        directory >=1.2.6.2 && <1.3,
+        filepath >=1.4.1.0 && <1.5,
+        http-client >=0.4.31.1 && <0.5,
+        http-conduit >=2.1.11 && <2.2,
+        megaparsec >=5.0.1 && <5.1,
+        mtl >=2.2.1 && <2.3,
+        optparse-applicative >=0.12.1.0 && <0.13,
+        hxt >=9.3.1.16 && <9.4,
+        text >=1.2.2.1 && <1.3,
+        free >=4.12.4 && <4.13
+    default-language: Haskell2010
+    hs-source-dirs: src src/Hattis
+
+executable hattis
+    main-is: Main.hs
+    build-depends:
+        base >=4.9.0.0 && <4.10,
+        hattis >=1.0.0.0 && <1.1,
+        mtl >=2.2.1 && <2.3,
+        ansi-terminal >=0.6.2.3 && <0.7,
+        optparse-applicative >=0.12 && <=0.15
+    default-language: Haskell2010
+    hs-source-dirs: app
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N
+
+test-suite hattis-test
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    build-depends:
+        base >=4.9.0.0 && <4.10,
+        hattis >=1.0.0.0 && <1.1
+    default-language: Haskell2010
+    hs-source-dirs: test
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N
