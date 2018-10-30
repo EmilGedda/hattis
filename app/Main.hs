@@ -16,6 +16,7 @@ import Options.Applicative
 import System.Console.ANSI
 import System.Environment
 import System.Exit
+import System.FilePath.Posix
 import System.IO
 
 newtype Hattis a = Hattis {
@@ -26,19 +27,26 @@ newtype Hattis a = Hattis {
 hattisver = "v1.1.0"
 versionstr = "Hattis " ++ hattisver ++"\nCopyright (C) 2015-2016 Emil Gedda"
 
-data Input = Input { probid :: String, files :: [String],
+data Input = Input { files :: [String], probid :: Maybe String,
                      conf :: Maybe String, force :: Bool,
                      lang :: Maybe String, mainclass :: Maybe String,
                      silent :: Bool, noglyphs :: Bool, nocolor :: Bool,
                      make :: Bool}
 
+resolve_probid :: Input -> String
+resolve_probid input = fromMaybe ((takeBaseName . head . files) input) (probid input)
+
 cmdopts :: Parser Input
 cmdopts = Input
-        <$> argument str
-                (metavar "PROBLEMID")
-        <*> some
+        <$> some
             (argument str
                 (metavar "FILES..."))
+        <*> optional
+            (strOption
+                (long "problemid"
+                <> short 'p'
+                <> metavar "PROBLEMID"
+                <> help "ID of the problem"))
         <*> optional
             (strOption
                 (long "conf"
@@ -113,11 +121,11 @@ genmake input = do
                , boolopt  "--silent" . silent
                , boolopt  "--no-glyphs" . noglyphs
                , boolopt  "--no-color" . nocolor
+               , maybeopt "--problemid" . probid
                , maybeopt "--conf" . conf
                , maybeopt "--language" . lang
                , maybeopt "--main" . mainclass]
     let str = makefile hattisver
-                       (probid input)
                        (map show $ files input) -- quote files
                        $ map ($ input) opts
     liftIO $ putStr str
@@ -142,7 +150,7 @@ run input =
 
     println $ "User:       " ++ user
     println $ "Language:   " ++ name language
-    println $ "Problem ID: " ++ probid input
+    println $ "Problem ID: " ++ resolve_probid input
     println $ "Files:      " ++ intercalate "\n            " (files input)
 
     unless (force input || silent input) $ do
@@ -155,7 +163,7 @@ run input =
     println "Submitting solution..."
     id <- wrap $ submit cookies
                         surl
-                        (probid input)
+                        (resolve_probid input)
                         (files input)
                         (name language)
                         (mainclass input)
