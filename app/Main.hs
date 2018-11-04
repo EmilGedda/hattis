@@ -34,7 +34,10 @@ data Input = Input { files :: [String], probid :: Maybe String,
                      make :: Bool}
 
 resolve_probid :: Input -> String
-resolve_probid input = fromMaybe ((takeBaseName . head . files) input) (probid input)
+resolve_probid input = fromMaybe ((get_probid . head . files) input) (probid input)
+    where
+        get_probid :: FilePath -> String
+        get_probid = dropExtension . takeFileName
 
 cmdopts :: Parser Input
 cmdopts = Input
