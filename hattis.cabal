@@ -47,6 +47,7 @@ executable hattis
     build-depends:
         base >=4.9.0.0 && <4.10,
         hattis >=1.0.0.0 && <1.1,
+        filepath >=1.4.1.0 && <1.5,
         mtl >=2.2.1 && <2.3,
         ansi-terminal >=0.6.2.3 && <0.7,
         optparse-applicative >=0.12 && <=0.15
