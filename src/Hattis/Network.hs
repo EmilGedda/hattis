@@ -129,7 +129,7 @@ parseHTML html = liftIO $ do
 
 parseFinished :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m (SubmissionProgress -> SubmissionProgress)
 parseFinished doc = liftIO $ do
-            let runtime = hasName "td" >>> hasAttrValue "class" (isInfixOf "runtime") 
+            let runtime = hasName "td" >>> hasAttrValue "data-type" (=="cpu")
             txt <- runX $ doc >>> deep runtime //> getText
             status <- parseStatus doc
             return . Finished (findscore status) . fromMaybe "Unknown time"
@@ -141,8 +141,8 @@ parseFinished doc = liftIO $ do
 
 parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseRunning doc = liftIO $ do
-            let testcases =  hasName "div" >>> hasAttrValue "class" (=="testcases")
-            uncurry Running . sumap (fromIntegral . length) . span (=="accepted")
+            let testcases =  hasName "div" >>> hasAttrValue "class" (isInfixOf "testcase-popup")
+            uncurry Running . sumap (fromIntegral . length) . span (isInfixOf "is-accepted")
                         <$> runX (doc >>> deep testcases /> getAttrValue "class")
             where sumap f = sec (+) . second f . first f
                   sec f (a,b) = (a, f a b)
@@ -160,7 +160,7 @@ parseFailed doc status = liftIO $ do
 
 parseStatus :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m String
 parseStatus doc = liftIO $ safe <$> runX (doc >>> deep stat //> getText)
-            where stat = hasName "td" >>> hasAttrValue "class" (isInfixOf "status")
+            where stat = hasName "td" >>> hasAttrValue "data-type" (=="status")
                   safe = fromMaybe "Unknown status" . listToMaybe
 
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
