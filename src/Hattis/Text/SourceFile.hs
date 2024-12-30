@@ -22,7 +22,6 @@ data Language
     | ObjectiveC
     | PHP
     | Prolog
-    | Python2
     | Python3
     | Ruby
     deriving (Show, Eq, Enum, Ord)
@@ -42,14 +41,12 @@ instance FileExt Language where
     exts ObjectiveC = [".m", ".h"]
     exts PHP        = [".php"]
     exts Prolog     = [".pl", ".prolog"]
-    exts Python2    = [".py"]
-    exts Python3    = [".py"] --Todo: Solve python-ambiguity
+    exts Python3    = [".py"]
     exts Ruby       = [".rb"]
 
     name CSharp     = "C#"
     name Cpp        = "C++"
     name ObjectiveC = "Objective-C"
-    name Python2    = "Python 2"
     name Python3    = "Python 3"
     name x          = show x
 
