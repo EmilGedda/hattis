@@ -141,7 +141,7 @@ parseFinished doc = liftIO $ do
 
 parseRunning :: MonadIO m => IOStateArrow () XmlTree XmlTree -> m SubmissionProgress 
 parseRunning doc = liftIO $ do
-            let testcases =  hasName "div" >>> hasAttrValue "class" (isInfixOf "testcase-popup")
+            let testcases =  hasName "div" >>> hasAttrValue "class" (isInfixOf "testcase-row")
             uncurry Running . sumap (fromIntegral . length) . span (isInfixOf "is-accepted")
                         <$> runX (doc >>> deep testcases /> getAttrValue "class")
             where sumap f = sec (+) . second f . first f
